@@ -142,7 +142,79 @@ export const DashboardView = () => {
     return fishCatches || [];
   }, [fishCatches, uploadedRecords]);
 
-  // Calculate statistics from combined data
+  // derive species options and location buckets from combined data
+  const speciesForFilter = React.useMemo(() => {
+    if (uploadedRecords && uploadedRecords.length > 0) {
+      const set = new Map<string, { id: string; common_name: string; scientific_name: string }>();
+      uploadedRecords.forEach((r: any) => {
+        const common = r.species?.common_name || r.species?.scientific_name || 'Unknown';
+        const scientific = r.species?.scientific_name || '';
+        if (!set.has(common)) set.set(common, { id: common, common_name: common, scientific_name: scientific });
+      });
+      return Array.from(set.values());
+    }
+    return species;
+  }, [uploadedRecords, species]);
+
+  const locations = React.useMemo(() => {
+    const set = new Map<string, string>();
+    combinedData.forEach((r: any) => {
+      if (r.latitude === undefined || r.longitude === undefined) return;
+      const lat = Number(r.latitude);
+      const lon = Number(r.longitude);
+      if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+      const latR = lat.toFixed(2);
+      const lonR = lon.toFixed(2);
+      const id = `${latR},${lonR}`;
+      const label = `${latR}, ${lonR}`;
+      if (!set.has(id)) set.set(id, label);
+    });
+    return Array.from(set.entries()).map(([id, label]) => ({ id, label }));
+  }, [combinedData]);
+
+  // Apply filters client-side to combinedData (when using uploaded data or after apply)
+  const filteredData = React.useMemo(() => {
+    return (combinedData || []).filter((r: any) => {
+      // species
+      if (filters.species) {
+        const sel = filters.species;
+        // find mapping from speciesForFilter
+        const entry = speciesForFilter.find(s => s.id === sel);
+        if (entry) {
+          const common = r.species?.common_name || r.species?.scientific_name || '';
+          const sci = r.species?.scientific_name || '';
+          if (!(common === entry.common_name || sci === entry.scientific_name || r.species?.id === sel)) return false;
+        } else {
+          // no match entry, try direct id compare
+          if (r.species?.id && r.species.id !== sel) return false;
+        }
+      }
+      // date range
+      if (filters.dateFrom) {
+        const d = r.catch_date ? new Date(r.catch_date) : null;
+        if (!d || d < filters.dateFrom) return false;
+      }
+      if (filters.dateTo) {
+        const d = r.catch_date ? new Date(r.catch_date) : null;
+        if (!d || d > filters.dateTo) return false;
+      }
+      // fishing method
+      if (filters.fishingMethod) {
+        if ((r.fishing_method || r.fishingMethod || '').toLowerCase() !== filters.fishingMethod.toLowerCase()) return false;
+      }
+      // location
+      if (filters.location) {
+        if (r.latitude === undefined || r.longitude === undefined) return false;
+        const latR = Number(r.latitude).toFixed(2);
+        const lonR = Number(r.longitude).toFixed(2);
+        const id = `${latR},${lonR}`;
+        if (id !== filters.location) return false;
+      }
+      return true;
+    });
+  }, [combinedData, filters, speciesForFilter]);
+
+  // Calculate statistics from filtered data
   const stats = React.useMemo(() => {
     const uniqueSpeciesSet = new Set(combinedData.map(c => c.species?.id || c.species?.common_name).filter(Boolean));
     const dates = combinedData.map(c => c.catch_date).filter(Boolean);

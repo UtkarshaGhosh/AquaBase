@@ -119,19 +119,6 @@ export const HeatmapMap: FC<HeatmapMapProps> = ({ initialData = [], className })
     return arr.map(p => ({ lat: p.lat, lng: p.lng, intensity: maxValue > 0 ? p.value / maxValue : 0 }));
   }, [rows, selectedSpecies]);
 
-  const handleFile = async (file: File) => {
-    const text = await file.text();
-    const parsed = d3.csvParse(text);
-    const normalized = parsed.map(d => ({ ...d }));
-    setCsvRows(normalized);
-    setSelectedSpecies('all');
-  };
-
-  const handleFileChange = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const f = files[0];
-    handleFile(f);
-  };
 
   const indiaCenter: [number, number] = [20.5937, 78.9629];
 

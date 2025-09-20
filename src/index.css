@@ -8,37 +8,56 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Ocean-inspired design system */
+    --background: 210 45% 98%;
+    --foreground: 220 90% 8%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 210 20% 97%;
+    --card-foreground: 220 90% 8%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 210 20% 97%;
+    --popover-foreground: 220 90% 8%;
 
-    --primary: 222.2 47.4% 11.2%;
+    /* Deep ocean blue primary */
+    --primary: 220 90% 15%;
     --primary-foreground: 210 40% 98%;
+    --primary-glow: 200 95% 45%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Teal secondary */
+    --secondary: 185 25% 92%;
+    --secondary-foreground: 185 90% 12%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 185 15% 94%;
+    --muted-foreground: 185 20% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Bright aqua accent */
+    --accent: 180 100% 85%;
+    --accent-foreground: 180 90% 15%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 185 25% 88%;
+    --input: 185 20% 90%;
+    --ring: 180 95% 45%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Ocean gradients and effects */
+    --gradient-ocean: linear-gradient(135deg, hsl(220 90% 15%), hsl(200 95% 45%));
+    --gradient-surface: linear-gradient(180deg, hsl(210 45% 98%), hsl(185 25% 92%));
+    --gradient-depth: linear-gradient(to bottom, hsl(180 95% 45% / 0.1), hsl(220 90% 15% / 0.05));
+    
+    /* Shadows and glows */
+    --shadow-ocean: 0 8px 32px hsl(220 90% 15% / 0.12);
+    --shadow-glow: 0 0 24px hsl(180 95% 45% / 0.3);
+    --shadow-data: 0 4px 16px hsl(185 25% 88% / 0.6);
+    
+    /* Animation transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    --sidebar-background: 185 25% 95%;
 
     --sidebar-foreground: 240 5.3% 26.1%;
 

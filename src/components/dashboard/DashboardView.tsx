@@ -381,6 +381,7 @@ export const DashboardView = () => {
               species={speciesForFilter}
               locations={locations}
               isLoading={isLoading}
+              onApply={() => setFilters(tempFilters)}
             />
           </div>
 

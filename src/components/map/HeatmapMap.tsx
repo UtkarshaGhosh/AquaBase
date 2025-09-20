@@ -43,7 +43,7 @@ export const HeatmapMap: FC<HeatmapMapProps> = ({ initialData = [], className })
   const [selectedSpecies, setSelectedSpecies] = useState<string>('all');
 
   // keep uploaded data in sync with UploadView (localStorage)
-  React.useEffect(() => {
+  useEffect(() => {
     function readUploaded() {
       try {
         const raw = localStorage.getItem('uploaded_fish_catches');

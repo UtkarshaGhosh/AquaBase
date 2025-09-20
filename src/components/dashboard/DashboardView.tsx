@@ -382,9 +382,6 @@ export const DashboardView = () => {
               locations={locations}
               isLoading={isLoading}
             />
-            <div className="mt-3">
-              <Button onClick={() => setFilters(tempFilters)} className="w-full bg-gradient-ocean text-white">Apply Filters</Button>
-            </div>
           </div>
 
           {/* Charts and Data View */}

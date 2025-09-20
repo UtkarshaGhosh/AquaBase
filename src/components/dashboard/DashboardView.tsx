@@ -17,7 +17,7 @@ interface Filters {
   species?: string;
   dateFrom?: Date;
   dateTo?: Date;
-  fishingMethod?: string;
+  location?: string;
   bounds?: { north: number; south: number; east: number; west: number };
 }
 
@@ -25,6 +25,8 @@ export const DashboardView = () => {
   const [filters, setFilters] = useState<Filters>({});
   const [tempFilters, setTempFilters] = useState<Filters>(filters);
   const { toast } = useToast();
+  const [exporting, setExporting] = useState(false);
+  const isUUID = (s?: string) => !!s && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 
   // keep tempFilters synced when filters applied externally
   useEffect(() => {
@@ -70,7 +72,7 @@ export const DashboardView = () => {
         .order('catch_date', { ascending: false });
 
       // Apply filters
-      if (filters.species) {
+      if (filters.species && isUUID(filters.species)) {
         query = query.eq('species_id', filters.species);
       }
       
@@ -82,9 +84,7 @@ export const DashboardView = () => {
         query = query.lte('catch_date', format(filters.dateTo, 'yyyy-MM-dd'));
       }
       
-      if (filters.fishingMethod) {
-        query = query.eq('fishing_method', filters.fishingMethod);
-      }
+
 
       if (filters.bounds) {
         query = query
@@ -228,9 +228,7 @@ export const DashboardView = () => {
         if (!d || d > filters.dateTo) return false;
       }
       // fishing method
-      if (filters.fishingMethod) {
-        if ((r.fishing_method || r.fishingMethod || '').toLowerCase() !== filters.fishingMethod.toLowerCase()) return false;
-      }
+
       // location
       if (filters.location) {
         if (r.latitude === undefined || r.longitude === undefined) return false;
@@ -273,49 +271,142 @@ export const DashboardView = () => {
     };
   }, [filteredData]);
 
-  const handleExport = () => {
-    const exportData = filteredData || [];
-    if (exportData.length === 0) {
-      toast({
-        title: "No data to export",
-        description: "Please adjust your filters or upload data to include some records.",
-        variant: "destructive"
-      });
-      return;
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+
+      // If user uploaded a CSV, export the filtered client-side data (already contains all rows)
+      let exportData: any[] = [];
+      const hasUploaded = uploadedRecords && uploadedRecords.length > 0;
+
+      if (hasUploaded) {
+        exportData = filteredData || [];
+      } else {
+        // Fetch ALL filtered rows from Supabase (no preview limit), in chunks
+        const pageSize = 1000;
+        let from = 0;
+        let to = pageSize - 1;
+        let done = false;
+        const all: any[] = [];
+
+        while (!done) {
+          let query = supabase
+            .from('fish_catches')
+            .select(`
+              id,
+              latitude,
+              longitude,
+              catch_date,
+              quantity,
+              weight_kg,
+              fishing_method,
+              quality_score,
+              is_anomaly,
+              species_id
+            `, { count: 'exact' })
+            .order('catch_date', { ascending: false })
+            .range(from, to);
+
+          if (filters.species && isUUID(filters.species)) {
+        query = query.eq('species_id', filters.species);
+      }
+          if (filters.dateFrom) {
+            query = query.gte('catch_date', format(filters.dateFrom, 'yyyy-MM-dd'));
+          }
+          if (filters.dateTo) {
+            query = query.lte('catch_date', format(filters.dateTo, 'yyyy-MM-dd'));
+          }
+    
+          if (filters.bounds) {
+            query = query
+              .gte('latitude', filters.bounds.south)
+              .lte('latitude', filters.bounds.north)
+              .gte('longitude', filters.bounds.west)
+              .lte('longitude', filters.bounds.east);
+          }
+
+          const { data, error } = await query;
+          if (error) throw error;
+          const batch = data || [];
+          all.push(...batch);
+
+          if (batch.length < pageSize) done = true;
+          else {
+            from += pageSize;
+            to += pageSize;
+          }
+        }
+
+        // Apply any client-only filters (like precise location bucket)
+        const filteredAll = all.filter((r: any) => {
+          if (filters.location) {
+            if (r.latitude === undefined || r.longitude === undefined) return false;
+            const latR = Number(r.latitude).toFixed(2);
+            const lonR = Number(r.longitude).toFixed(2);
+            const id = `${latR},${lonR}`;
+            if (id !== filters.location) return false;
+          }
+          return true;
+        });
+
+        // Enrich species names using the species lookup
+        const speciesMap = new Map<string, { common_name: string | null; scientific_name: string }>();
+        (species || []).forEach((s: any) => speciesMap.set(s.id, { common_name: s.common_name, scientific_name: s.scientific_name }));
+        exportData = filteredAll.map((r: any) => ({
+          ...r,
+          species: {
+            id: r.species_id,
+            common_name: speciesMap.get(r.species_id || '')?.common_name || null,
+            scientific_name: speciesMap.get(r.species_id || '')?.scientific_name || ''
+          }
+        }));
+      }
+
+      if (exportData.length === 0) {
+        toast({
+          title: 'No data to export',
+          description: 'Please adjust your filters or upload data to include some records.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // CSV with escaping
+      const escape = (v: any) => {
+        const s = String(v ?? '');
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      };
+
+      const headers = ['Date', 'Species (Common)', 'Species (Scientific)', 'Latitude', 'Longitude', 'Quantity', 'Weight (kg)', 'Fishing Method', 'Quality Score'];
+      const rows = exportData.map((c) => [
+        escape(c.catch_date),
+        escape(c.species?.common_name || ''),
+        escape(c.species?.scientific_name || ''),
+        escape(c.latitude),
+        escape(c.longitude),
+        escape(c.quantity),
+        escape(c.weight_kg || ''),
+        escape(c.fishing_method || ''),
+        escape(c.quality_score || ''),
+      ].join(','));
+      const csvContent = [headers.join(','), ...rows].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `fish-catch-data-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast({ title: 'Data exported successfully', description: `Downloaded ${exportData.length} records to CSV file.` });
+    } catch (e: any) {
+      toast({ title: 'Export failed', description: e?.message || 'Unexpected error during export.', variant: 'destructive' });
+    } finally {
+      setExporting(false);
     }
-
-    // Create CSV content
-    const headers = ['Date', 'Species (Common)', 'Species (Scientific)', 'Latitude', 'Longitude', 'Quantity', 'Weight (kg)', 'Fishing Method', 'Quality Score'];
-    const csvContent = [
-      headers.join(','),
-      ...exportData.map(catch_item => [
-        catch_item.catch_date,
-        catch_item.species?.common_name || '',
-        catch_item.species?.scientific_name || '',
-        catch_item.latitude,
-        catch_item.longitude,
-        catch_item.quantity,
-        catch_item.weight_kg || '',
-        catch_item.fishing_method || '',
-        catch_item.quality_score || ''
-      ].join(','))
-    ].join('\n');
-
-    // Download CSV
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `fish-catch-data-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-
-    toast({
-      title: "Data exported successfully",
-      description: `Downloaded ${fishCatches.length} records to CSV file.`
-    });
   };
 
   const handleFindHotspots = () => {
@@ -408,7 +499,7 @@ export const DashboardView = () => {
               onFindHotspots={handleFindHotspots}
               species={speciesForFilter}
               locations={locationOptions}
-              isLoading={isLoading}
+              isLoading={isLoading || exporting}
               onApply={() => setFilters(tempFilters)}
             />
           </div>
@@ -449,45 +540,43 @@ export const DashboardView = () => {
             </Card>
           </div>
 
-          {/* Table with first 10 rows when a filter is applied */}
-          { (filters && (filters.species || filters.dateFrom || filters.dateTo || filters.fishingMethod || filters.location)) && (
-            <Card className="bg-card border shadow-data">
-              <CardHeader>
-                <CardTitle className="text-foreground">Filtered Data Preview (first 10)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-muted-foreground">
-                        <th className="p-2">Date</th>
-                        <th className="p-2">Species</th>
-                        <th className="p-2">Lat</th>
-                        <th className="p-2">Lon</th>
-                        <th className="p-2">Qty</th>
-                        <th className="p-2">Weight (kg)</th>
+          {/* Data preview table (first 20 rows, reflects filters) */}
+          <Card className="bg-card border shadow-data">
+            <CardHeader>
+              <CardTitle className="text-foreground">Data Preview (first 20)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="p-2">Date</th>
+                      <th className="p-2">Species</th>
+                      <th className="p-2">Lat</th>
+                      <th className="p-2">Lon</th>
+                      <th className="p-2">Qty</th>
+                      <th className="p-2">Weight (kg)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredData.slice(0, 20).map((r: any, i: number) => (
+                      <tr key={r.id || i} className="border-t">
+                        <td className="p-2">{r.catch_date || '-'}</td>
+                        <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
+                        <td className="p-2">{r.latitude ?? '-'}</td>
+                        <td className="p-2">{r.longitude ?? '-'}</td>
+                        <td className="p-2">{r.quantity ?? '-'}</td>
+                        <td className="p-2">{r.weight_kg ?? '-'}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {filteredData.slice(0, 10).map((r: any, i: number) => (
-                        <tr key={r.id || i} className="border-t">
-                          <td className="p-2">{r.catch_date || '-'}</td>
-                          <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
-                          <td className="p-2">{r.latitude ?? '-'}</td>
-                          <td className="p-2">{r.longitude ?? '-'}</td>
-                          <td className="p-2">{r.quantity ?? '-'}</td>
-                          <td className="p-2">{r.weight_kg ?? '-'}</td>
-                        </tr>
-                      ))}
-                      {filteredData.length === 0 && (
-                        <tr><td colSpan={6} className="p-2 text-muted-foreground">No records found for current filters.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          ) }
+                    ))}
+                    {filteredData.length === 0 && (
+                      <tr><td colSpan={6} className="p-2 text-muted-foreground">No records found.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

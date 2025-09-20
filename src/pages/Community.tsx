@@ -24,8 +24,8 @@ const CommunityPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6">
-        <h1 className="mb-6 text-2xl font-semibold">Community Datasets</h1>
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        <div style={{ color: 'rgba(2, 14, 39, 0.51)' }} className="mb-6 text-2xl font-semibold">Community Datasets</div>
+        <div className="grid gap-4 grid-cols-3">
           {data.map((d: any) => (
             <Card key={d.id} className="bg-card">
               <CardHeader>

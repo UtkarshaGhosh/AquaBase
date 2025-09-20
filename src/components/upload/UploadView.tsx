@@ -267,6 +267,22 @@ export const UploadView = () => {
                     {detecting && (
                       <p className="text-xs text-muted-foreground">Detecting anomalies with AI model...</p>
                     )}
+                    <div className="flex items-center justify-center gap-2 mb-3">
+                      <Button variant="secondary" onClick={() => trainLocalModel(parsedRecords)}>Train Local Model</Button>
+                      <Button variant="secondary" onClick={() => {
+                        const updated = runLocalModel(parsedRecords);
+                        setParsedRecords(updated);
+                        try {
+                          localStorage.setItem('uploaded_fish_catches', JSON.stringify(updated));
+                          try { window.dispatchEvent(new Event('uploaded-data-changed')); } catch {}
+                        } catch {}
+                        if (updated.some(r => r.is_anomaly)) {
+                          toast({ title: 'Local anomalies detected', description: 'Flagged using the locally trained model.' });
+                        } else {
+                          toast({ title: 'No anomalies detected locally', description: 'Local model did not flag any records.' });
+                        }
+                      }}>Run Local Model</Button>
+                    </div>
                     <Button onClick={() => setUploadStatus('idle')} variant="outline">Upload Another File</Button>
                   </>
                 )}

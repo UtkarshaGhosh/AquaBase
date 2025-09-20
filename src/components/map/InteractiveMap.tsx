@@ -124,7 +124,7 @@ export const InteractiveMap = ({ data, onBoundsChange, className }: InteractiveM
 
   return (
     <div className={`relative w-full h-[500px] ${className || ''}`}>
-      <MapContainer center={defaultCenter} zoom={3} style={{ height: '100%', width: '100%' }} whenCreated={(m) => { mapRef.current = m; }}>
+      <MapContainer center={defaultCenter} zoom={3} style={{ height: '100%', width: '100%' }} whenCreated={(m) => { mapRef.current = m; }} scrollWheelZoom={true} zoomControl={true}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

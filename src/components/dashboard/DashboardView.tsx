@@ -352,9 +352,7 @@ export const DashboardView = () => {
         {/* Statistics Overview */}
         <StatsCards
           totalCatches={stats.totalCatches}
-          uniqueSpecies={stats.uniqueSpecies}
           dateRange={stats.dateRange}
-          avgQualityScore={stats.avgQualityScore}
           totalWeight={stats.totalWeight}
           avgWeightPerCatch={stats.avgWeightPerCatch}
           topSpecies={stats.topSpecies}

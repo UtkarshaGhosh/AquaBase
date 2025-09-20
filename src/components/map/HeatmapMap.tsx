@@ -47,18 +47,18 @@ function useHeatLayer(points: HeatmapPoint[], opts: {
             number
         ][] = points.map(p => [p.lat, p.lng, p.intensity]);
         const gradient: Record<number, string> = {
-            0.0: '#0b1021',
-            0.2: '#2441a6',
-            0.4: '#1ebbd7',
-            0.6: '#44ce7b',
-            0.8: '#f7e26b',
-            1.0: '#f94144',
+            0.2: '#0000ff',
+            0.4: '#00ffff',
+            0.6: '#00ff00',
+            0.8: '#ffff00',
+            1.0: '#ff0000',
         };
         const layer = (L as any).heatLayer(latlngs, {
-            radius: opts.radius ?? 25,
+            radius: opts.radius ?? 30,
             blur: opts.blur ?? 20,
             max: opts.max ?? 1,
             maxZoom: 18,
+            minOpacity: 0.6,
             gradient,
         });
         layer.addTo(map);

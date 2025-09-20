@@ -85,9 +85,47 @@ export const InteractiveMap = ({ data, onBoundsChange, className }: InteractiveM
     ? [data[0].latitude || 0, data[0].longitude || 0]
     : [50, -20];
 
+  const mapRef = useRef<any>(null);
+  const heatRef = useRef<any>(null);
+  const [showHeat, setShowHeat] = useState(false);
+
+  useEffect(() => {
+    // manage heat layer when data or toggle changes
+    const map = mapRef.current;
+    if (!map) return;
+
+    // remove existing heat layer
+    if (heatRef.current) {
+      try { heatRef.current.remove(); } catch (e) {}
+      heatRef.current = null;
+    }
+
+    if (!showHeat) return;
+
+    const heatPoints: [number, number, number][] = data
+      .filter(d => d.latitude !== undefined && d.longitude !== undefined)
+      .map(d => [d.latitude as number, d.longitude as number, (Number(d.weight_kg) || 1)]) ;
+
+    if (heatPoints.length === 0) return;
+
+    try {
+      // @ts-ignore
+      heatRef.current = (L as any).heatLayer(heatPoints, { radius: 25, blur: 15, maxZoom: 17 }).addTo(map);
+    } catch (e) {
+      // ignore
+    }
+
+    return () => {
+      if (heatRef.current) {
+        try { heatRef.current.remove(); } catch (e) {}
+        heatRef.current = null;
+      }
+    };
+  }, [data, showHeat]);
+
   return (
     <div className={`relative w-full h-[500px] ${className || ''}`}>
-      <MapContainer center={defaultCenter} zoom={3} style={{ height: '100%', width: '100%' }}>
+      <MapContainer center={defaultCenter} zoom={3} style={{ height: '100%', width: '100%' }} whenCreated={(m) => { mapRef.current = m; }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -120,6 +158,12 @@ export const InteractiveMap = ({ data, onBoundsChange, className }: InteractiveM
       <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 shadow-data">
         <p className="text-sm font-medium text-foreground">Fish Catch Locations</p>
         <p className="text-xs text-muted-foreground">Click points for details</p>
+      </div>
+
+      <div className="absolute top-4 right-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 flex gap-2 items-center shadow-data">
+        <Button size="sm" variant={showHeat ? undefined : 'outline'} onClick={() => setShowHeat(s => !s)}>
+          {showHeat ? 'Hide Heatmap' : 'Show Heatmap'}
+        </Button>
       </div>
     </div>
   );

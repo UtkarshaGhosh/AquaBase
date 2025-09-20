@@ -88,7 +88,7 @@ export const HeatmapMap: FC<HeatmapMapProps> = ({ initialData = [], className })
         };
       })
       .filter(Boolean) as Array<{ lat: number; lng: number; weight?: number; quantity?: number; speciesName: string }>; 
-  }, [csvRows, initialData]);
+  }, [uploadedRows, initialData]);
 
   const [showHeat, setShowHeat] = useState(true);
 

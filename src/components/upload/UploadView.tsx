@@ -249,6 +249,33 @@ export const UploadView = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Data Quality Overview (based on uploaded file) */}
+          <Card className="bg-card border shadow-data">
+            <CardHeader>
+              <CardTitle className="text-foreground">Data Quality Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{parsedRecords.filter(r => !r.is_anomaly).length}</div>
+                  <div className="text-sm text-muted-foreground">Clean Records</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-yellow-600">{parsedRecords.filter(r => r.is_anomaly).length}</div>
+                  <div className="text-sm text-muted-foreground">Flagged Anomalies</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{parsedRecords.length > 0 ? Math.round((parsedRecords.filter(r => (r.quality_score || 0) >= 90).length / parsedRecords.length) * 100) : 0}%</div>
+                  <div className="text-sm text-muted-foreground">High Quality</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-primary">{parsedRecords.length}</div>
+                  <div className="text-sm text-muted-foreground">Total Records</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

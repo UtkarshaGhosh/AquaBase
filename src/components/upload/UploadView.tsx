@@ -95,8 +95,8 @@ export const UploadView = () => {
       <div className="container mx-auto p-6 space-y-6">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Data Upload Portal</h1>
-            <p className="text-muted-foreground">Upload your fish catch data files for analysis and visualization</p>
+            <h1 className="text-3xl font-bold text-gray-200 mb-2">Data Upload Portal</h1>
+            <p className="text-gray-300">Upload your fish catch data files for analysis and visualization</p>
           </div>
 
           <Alert className="mb-6">

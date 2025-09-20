@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +13,7 @@ export const UploadView = () => {
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [parsedRecords, setParsedRecords] = useState<any[]>([]);
   const { toast } = useToast();
-  const queryClient = require('@tanstack/react-query').useQueryClient?.() || null;
+  const queryClient = useQueryClient();
 
   const parseCSV = (text: string) => {
     const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);

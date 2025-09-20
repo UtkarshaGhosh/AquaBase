@@ -101,7 +101,7 @@ export const UploadView = () => {
 
           <Alert className="mb-6">
             <Info className="h-4 w-4"/>
-            <AlertDescription>
+            <AlertDescription className="text-gray-300">
               <strong>Upload Requirements:</strong> Please ensure your CSV file contains columns for species, latitude, longitude, catch_date, quantity, and weight_kg.
               The system will automatically validate and process your data with AI-powered quality checks.
             </AlertDescription>

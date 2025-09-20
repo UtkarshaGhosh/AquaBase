@@ -6,6 +6,7 @@ import { FilterPanel } from './FilterPanel';
 import { StatsCards } from './StatsCards';
 import SpeciesBarChart from '@/components/charts/SpeciesBarChart';
 import CatchTrendLineChart from '@/components/charts/CatchTrendLineChart';
+import AbundanceChart from '@/components/charts/AbundanceChart';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -156,8 +157,11 @@ export const DashboardView = () => {
     return species;
   }, [uploadedRecords, species]);
 
-  const locations = React.useMemo(() => {
-    const set = new Map<string, string>();
+  // Build location list and resolve area names via reverse geocoding (cached)
+  const [locationOptions, setLocationOptions] = React.useState<Array<{ id: string; label: string; lat?: number; lon?: number }>>([]);
+
+  React.useEffect(() => {
+    const map = new Map<string, { id: string; label: string; lat: number; lon: number }>();
     combinedData.forEach((r: any) => {
       if (r.latitude === undefined || r.longitude === undefined) return;
       const lat = Number(r.latitude);
@@ -167,9 +171,34 @@ export const DashboardView = () => {
       const lonR = lon.toFixed(2);
       const id = `${latR},${lonR}`;
       const label = `${latR}, ${lonR}`;
-      if (!set.has(id)) set.set(id, label);
+      if (!map.has(id)) map.set(id, { id, label, lat, lon });
     });
-    return Array.from(set.entries()).map(([id, label]) => ({ id, label }));
+
+    const entries = Array.from(map.values());
+    setLocationOptions(entries.map(e => ({ id: e.id, label: e.label, lat: e.lat, lon: e.lon })));
+
+    // resolve area names async
+    let mounted = true;
+    (async () => {
+      try {
+        const { getAreaName } = await import('@/lib/geocode');
+        for (const e of entries) {
+          try {
+            const area = await getAreaName(e.lat, e.lon);
+            if (!mounted) return;
+            setLocationOptions(prev => prev.map(p => p.id === e.id ? { ...p, label: area, lat: p.lat, lon: p.lon } : p));
+            // small delay to be polite to Nominatim
+            await new Promise(r => setTimeout(r, 200));
+          } catch (err) {
+            // ignore per-entry
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+    })();
+
+    return () => { mounted = false; };
   }, [combinedData]);
 
   // Apply filters client-side to combinedData (when using uploaded data or after apply)
@@ -334,6 +363,18 @@ export const DashboardView = () => {
     });
   }, [filteredData]);
 
+  // Abundance aggregation: counts per species
+  const abundanceAggregation = React.useMemo(() => {
+    const map = new Map<string, number>();
+    filteredData.forEach((c: any) => {
+      const name = c?.species?.common_name || c?.species?.scientific_name || 'Unknown';
+      map.set(name, (map.get(name) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredData]);
+
   if (error) {
     return (
       <Alert variant="destructive" className="m-6">
@@ -357,50 +398,96 @@ export const DashboardView = () => {
           topSpecies={stats.topSpecies}
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Filter Panel */}
-          <div className="lg:col-span-1">
+        <div className="space-y-6">
+          {/* Filters at top, full width */}
+          <div>
             <FilterPanel
               filters={tempFilters}
               onFiltersChange={setTempFilters}
               onExport={handleExport}
               onFindHotspots={handleFindHotspots}
               species={speciesForFilter}
-              locations={locations}
+              locations={locationOptions}
               isLoading={isLoading}
+              onApply={() => setFilters(tempFilters)}
             />
-            <div className="mt-3">
-              <Button onClick={() => setFilters(tempFilters)} className="w-full bg-gradient-ocean text-white">Apply Filters</Button>
-            </div>
           </div>
 
-          {/* Charts and Data View */}
-          <div className="lg:col-span-3 space-y-6">
-            {/* Charts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="bg-card border shadow-data">
-                <CardHeader>
-                  <CardTitle className="text-foreground">Catch Weight by Species</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[420px]">
-                    <SpeciesBarChart data={speciesAggregation} />
-                  </div>
-                </CardContent>
-              </Card>
+          {/* Charts stacked vertically, full width */}
+          <div className="space-y-6">
+            <Card className="bg-card border shadow-data">
+              <CardHeader>
+                <CardTitle className="text-foreground">Catch Weight by Species</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[360px]">
+                  <SpeciesBarChart data={speciesAggregation} />
+                </div>
+              </CardContent>
+            </Card>
 
-              <Card className="bg-card border shadow-data">
-                <CardHeader>
-                  <CardTitle className="text-foreground">Catch Trend Over Time</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[420px]">
-                    <CatchTrendLineChart data={trendData} />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="bg-card border shadow-data">
+              <CardHeader>
+                <CardTitle className="text-foreground">Abundance (Counts) by Species</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[360px]">
+                  <AbundanceChart data={abundanceAggregation} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border shadow-data">
+              <CardHeader>
+                <CardTitle className="text-foreground">Catch Trend Over Time</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[360px]">
+                  <CatchTrendLineChart data={trendData} />
+                </div>
+              </CardContent>
+            </Card>
           </div>
+
+          {/* Table with first 10 rows when a filter is applied */}
+          { (filters && (filters.species || filters.dateFrom || filters.dateTo || filters.fishingMethod || filters.location)) && (
+            <Card className="bg-card border shadow-data">
+              <CardHeader>
+                <CardTitle className="text-foreground">Filtered Data Preview (first 10)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-muted-foreground">
+                        <th className="p-2">Date</th>
+                        <th className="p-2">Species</th>
+                        <th className="p-2">Lat</th>
+                        <th className="p-2">Lon</th>
+                        <th className="p-2">Qty</th>
+                        <th className="p-2">Weight (kg)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredData.slice(0, 10).map((r: any, i: number) => (
+                        <tr key={r.id || i} className="border-t">
+                          <td className="p-2">{r.catch_date || '-'}</td>
+                          <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
+                          <td className="p-2">{r.latitude ?? '-'}</td>
+                          <td className="p-2">{r.longitude ?? '-'}</td>
+                          <td className="p-2">{r.quantity ?? '-'}</td>
+                          <td className="p-2">{r.weight_kg ?? '-'}</td>
+                        </tr>
+                      ))}
+                      {filteredData.length === 0 && (
+                        <tr><td colSpan={6} className="p-2 text-muted-foreground">No records found for current filters.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          ) }
         </div>
       </div>
     </div>

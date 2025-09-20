@@ -3,6 +3,7 @@ import { Header } from "@/components/ui/navigation";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { UploadView } from "@/components/upload/UploadView";
 import { InteractiveMap } from "@/components/map/InteractiveMap";
+import { HeatmapMap } from "@/components/map/HeatmapMap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -73,7 +74,7 @@ const Index = () => {
       case 'map':
         return (
           <div className="min-h-screen bg-gradient-surface">
-            <div className="container mx-auto p-6">
+            <div className="container mx-auto p-6 space-y-6">
               <Card className="bg-card border shadow-ocean">
                 <CardHeader>
                   <CardTitle className="text-foreground">Fish Catch Map View</CardTitle>
@@ -82,6 +83,8 @@ const Index = () => {
                   <InteractiveMap data={mapData} className="h-[600px]" />
                 </CardContent>
               </Card>
+
+              <HeatmapMap initialData={mapData} className="h-[600px]" />
             </div>
           </div>
         );

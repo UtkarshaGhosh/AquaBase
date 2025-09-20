@@ -377,14 +377,25 @@ export const DashboardView = () => {
           {/* Charts and Data View */}
           <div className="lg:col-span-3 space-y-6">
             {/* Charts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card className="bg-card border shadow-data">
                 <CardHeader>
                   <CardTitle className="text-foreground">Catch Weight by Species</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[420px]">
+                  <div className="h-[320px]">
                     <SpeciesBarChart data={speciesAggregation} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card border shadow-data">
+                <CardHeader>
+                  <CardTitle className="text-foreground">Abundance (Counts) by Species</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[320px]">
+                    <AbundanceChart data={abundanceAggregation} />
                   </div>
                 </CardContent>
               </Card>
@@ -394,12 +405,52 @@ export const DashboardView = () => {
                   <CardTitle className="text-foreground">Catch Trend Over Time</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[420px]">
+                  <div className="h-[320px]">
                     <CatchTrendLineChart data={trendData} />
                   </div>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Table with first 10 rows when a filter is applied */}
+            { (filters && (filters.species || filters.dateFrom || filters.dateTo || filters.fishingMethod || filters.location)) && (
+              <Card className="bg-card border shadow-data">
+                <CardHeader>
+                  <CardTitle className="text-foreground">Filtered Data Preview (first 10)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-muted-foreground">
+                          <th className="p-2">Date</th>
+                          <th className="p-2">Species</th>
+                          <th className="p-2">Lat</th>
+                          <th className="p-2">Lon</th>
+                          <th className="p-2">Qty</th>
+                          <th className="p-2">Weight (kg)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredData.slice(0, 10).map((r: any, i: number) => (
+                          <tr key={r.id || i} className="border-t">
+                            <td className="p-2">{r.catch_date || '-'}</td>
+                            <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
+                            <td className="p-2">{r.latitude ?? '-'}</td>
+                            <td className="p-2">{r.longitude ?? '-'}</td>
+                            <td className="p-2">{r.quantity ?? '-'}</td>
+                            <td className="p-2">{r.weight_kg ?? '-'}</td>
+                          </tr>
+                        ))}
+                        {filteredData.length === 0 && (
+                          <tr><td colSpan={6} className="p-2 text-muted-foreground">No records found for current filters.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            ) }
           </div>
         </div>
       </div>

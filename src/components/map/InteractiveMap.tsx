@@ -86,17 +86,30 @@ export const InteractiveMap = ({ data, onBoundsChange, className }: InteractiveM
         }
         if (!showHeat)
             return;
+        const rawPoints = data
+            .filter(d => d.latitude !== undefined && d.longitude !== undefined)
+            .map(d => {
+                const value = (Number(d.weight_kg) || Number(d.quantity) || 1);
+                return { lat: d.latitude as number, lng: d.longitude as number, value };
+            });
+        const maxValue = rawPoints.reduce((m, p) => Math.max(m, p.value), 0);
         const heatPoints: [
             number,
             number,
             number
-        ][] = data
-            .filter(d => d.latitude !== undefined && d.longitude !== undefined)
-            .map(d => [d.latitude as number, d.longitude as number, (Number(d.weight_kg) || 1)]);
+        ][] = rawPoints.map(p => [p.lat, p.lng, maxValue > 0 ? p.value / maxValue : 0]);
         if (heatPoints.length === 0)
             return;
         try {
-            heatRef.current = (L as any).heatLayer(heatPoints, { radius: 25, blur: 15, maxZoom: 17 }).addTo(map);
+            const gradient: Record<number, string> = {
+                0.0: '#0b1021',
+                0.2: '#2441a6',
+                0.4: '#1ebbd7',
+                0.6: '#44ce7b',
+                0.8: '#f7e26b',
+                1.0: '#f94144',
+            };
+            heatRef.current = (L as any).heatLayer(heatPoints, { radius: 25, blur: 15, maxZoom: 17, max: 1, gradient }).addTo(map);
         }
         catch (e) {
         }

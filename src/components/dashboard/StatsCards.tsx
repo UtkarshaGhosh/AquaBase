@@ -4,9 +4,7 @@ import { Fish, Calendar, MapPin, TrendingUp } from "lucide-react";
 
 interface StatsCardsProps {
   totalCatches: number;
-  uniqueSpecies: number;
   dateRange: string;
-  avgQualityScore: number;
   totalWeight?: number;
   avgWeightPerCatch?: number;
   topSpecies?: string;
@@ -14,9 +12,7 @@ interface StatsCardsProps {
 
 export const StatsCards = ({
   totalCatches,
-  uniqueSpecies,
   dateRange,
-  avgQualityScore,
   totalWeight = 0,
   avgWeightPerCatch = 0,
   topSpecies = 'N/A'
@@ -29,22 +25,10 @@ export const StatsCards = ({
       subtitle: "catch records"
     },
     {
-      title: "Unique Species",
-      value: uniqueSpecies.toString(),
-      icon: TrendingUp,
-      subtitle: "different species"
-    },
-    {
       title: "Date Range",
       value: dateRange,
       icon: Calendar,
       subtitle: "data coverage"
-    },
-    {
-      title: "Data Quality",
-      value: `${avgQualityScore}%`,
-      icon: MapPin,
-      subtitle: "avg quality score"
     },
     {
       title: "Total Weight",

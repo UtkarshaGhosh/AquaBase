@@ -216,14 +216,13 @@ export const DashboardView = () => {
 
   // Calculate statistics from filtered data
   const stats = React.useMemo(() => {
-    const uniqueSpeciesSet = new Set(combinedData.map(c => c.species?.id || c.species?.common_name).filter(Boolean));
-    const dates = combinedData.map(c => c.catch_date).filter(Boolean);
-    const avgQuality = combinedData.length > 0
-      ? Math.round(combinedData.reduce((sum, c) => sum + (c.quality_score || 0), 0) / combinedData.length)
+    const dates = filteredData.map(c => c.catch_date).filter(Boolean);
+    const avgQuality = filteredData.length > 0
+      ? Math.round(filteredData.reduce((sum, c) => sum + (c.quality_score || 0), 0) / filteredData.length)
       : 0;
 
-    const totalWeight = combinedData.reduce((sum, c) => sum + (Number(c.weight_kg) || 0), 0);
-    const avgWeightPerCatch = combinedData.length > 0 ? Math.round(totalWeight / combinedData.length) : 0;
+    const totalWeight = filteredData.reduce((sum, c) => sum + (Number(c.weight_kg) || 0), 0);
+    const avgWeightPerCatch = filteredData.length > 0 ? Math.round(totalWeight / filteredData.length) : 0;
 
     // top species by weight
     const speciesWeightMap = new Map<string, number>();

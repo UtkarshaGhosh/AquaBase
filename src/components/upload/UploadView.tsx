@@ -17,6 +17,7 @@ export const UploadView = () => {
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
     const [parsedRecords, setParsedRecords] = useState<any[]>([]);
     const [detecting, setDetecting] = useState(false);
+    const [targetAnomalies, setTargetAnomalies] = useState<number>(25);
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
@@ -31,7 +32,7 @@ export const UploadView = () => {
         toast({ title: 'Local model trained', description: `Trained on ${records.length} rows with ${LOCAL_FEATURES.length} features.` });
     };
 
-    const runLocalModel = (records: any[], threshold = 0.6) => {
+    const runLocalModel = (records: any[], threshold = 0.6, desiredCount?: number) => {
         const raw = localStorage.getItem(LOCAL_MODEL_KEY);
         if (!raw) {
             toast({ title: 'No local model found', description: 'Train the model first.', variant: 'destructive' });
@@ -42,10 +43,22 @@ export const UploadView = () => {
         const med: number[] = parsed.med || [];
         const feats = extractNumericFeatures(records, LOCAL_FEATURES);
         const featsImp = imputeWithMedians(feats, med);
-        const updated = records.map((r, i) => {
-            const { score, isAnomaly } = forest.predict(featsImp[i], threshold);
-            return { ...r, anomaly_score: score, is_anomaly: isAnomaly };
-        });
+
+        // Compute scores first
+        const scores = featsImp.map(vec => forest.score(vec));
+        let tau = threshold;
+        if (typeof desiredCount === 'number' && desiredCount >= 0) {
+            const k = Math.max(0, Math.min(desiredCount, scores.length));
+            if (k === 0) {
+                tau = Infinity; // flag none
+            } else if (k >= scores.length) {
+                tau = -Infinity; // flag all
+            } else {
+                const sorted = [...scores].sort((a, b) => b - a);
+                tau = sorted[k - 1];
+            }
+        }
+        const updated = records.map((r, i) => ({ ...r, anomaly_score: scores[i], is_anomaly: scores[i] >= tau }));
         return updated;
     };
 
@@ -277,18 +290,20 @@ export const UploadView = () => {
                     )}
                     <div className="flex items-center justify-center gap-2 mb-3">
                       <Button variant="secondary" onClick={() => trainLocalModel(parsedRecords)}>Train Local Model</Button>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-muted-foreground">Target anomalies</label>
+                        <Input type="number" min={0} max={parsedRecords.length || 1000} value={targetAnomalies}
+                          onChange={(e) => setTargetAnomalies(Math.max(0, Math.min(Number(e.target.value || 0), parsedRecords.length || 1000)))} className="w-24" />
+                      </div>
                       <Button variant="secondary" onClick={() => {
-                        const updated = runLocalModel(parsedRecords);
+                        const updated = runLocalModel(parsedRecords, 0.6, targetAnomalies);
                         setParsedRecords(updated);
                         try {
                           localStorage.setItem('uploaded_fish_catches', JSON.stringify(updated));
                           try { window.dispatchEvent(new Event('uploaded-data-changed')); } catch {}
                         } catch {}
-                        if (updated.some(r => r.is_anomaly)) {
-                          toast({ title: 'Local anomalies detected', description: 'Flagged using the locally trained model.' });
-                        } else {
-                          toast({ title: 'No anomalies detected locally', description: 'Local model did not flag any records.' });
-                        }
+                        const count = updated.filter(r => r.is_anomaly).length;
+                        toast({ title: 'Local anomalies detected', description: `Flagged ${count} records using the local model.` });
                       }}>Run Local Model</Button>
                     </div>
                     <Button onClick={() => setUploadStatus('idle')} variant="outline">Upload Another File</Button>

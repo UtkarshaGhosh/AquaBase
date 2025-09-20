@@ -147,6 +147,10 @@ export const HeatmapMap: FC<HeatmapMapProps> = ({ initialData = [], className })
           </MapContainer>
 
           <div className="absolute top-4 right-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 flex flex-col gap-2 items-stretch shadow-data" style={{ zIndex: 1000, pointerEvents: 'auto' }}>
+            <div className="min-w-[220px]">
+              <Input type="file" accept=".csv" onChange={(e) => handleFileChange(e.target.files)} />
+            </div>
+
             <div className="min-w-[180px]">
               <Select value={selectedSpecies} onValueChange={(v) => setSelectedSpecies(v)}>
                 <SelectTrigger className="bg-background border-border">

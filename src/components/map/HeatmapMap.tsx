@@ -176,7 +176,7 @@ export const HeatmapMap: FC<HeatmapMapProps> = ({ initialData = [], className })
                 <SelectTrigger className="bg-background border-border">
                   <SelectValue placeholder="All species" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent disablePortal>
                   <SelectItem value="all">All species</SelectItem>
                   {speciesOptions.map(s => (
                     <SelectItem key={s} value={s}>{s}</SelectItem>

@@ -4,6 +4,13 @@ let disabled = false;
 let failures = 0;
 if (typeof window !== 'undefined') {
   try { disabled = sessionStorage.getItem('reverse_geocode_disabled') === '1'; } catch (e) {}
+  try {
+    // If FullStory is present or sets a namespace, avoid external fetches to prevent noise/errors
+    if ((window as any).FS || (window as any)["_fs_namespace"]) {
+      disabled = true;
+      try { sessionStorage.setItem('reverse_geocode_disabled', '1'); } catch (e) {}
+    }
+  } catch {}
 }
 
 export async function getAreaName(lat: number, lon: number): Promise<string> {

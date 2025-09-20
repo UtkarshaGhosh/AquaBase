@@ -17,7 +17,6 @@ interface Filters {
   species?: string;
   dateFrom?: Date;
   dateTo?: Date;
-  fishingMethod?: string;
   location?: string;
   bounds?: { north: number; south: number; east: number; west: number };
 }
@@ -85,9 +84,7 @@ export const DashboardView = () => {
         query = query.lte('catch_date', format(filters.dateTo, 'yyyy-MM-dd'));
       }
       
-      if (filters.fishingMethod) {
-        query = query.eq('fishing_method', filters.fishingMethod);
-      }
+
 
       if (filters.bounds) {
         query = query
@@ -231,9 +228,7 @@ export const DashboardView = () => {
         if (!d || d > filters.dateTo) return false;
       }
       // fishing method
-      if (filters.fishingMethod) {
-        if ((r.fishing_method || r.fishingMethod || '').toLowerCase() !== filters.fishingMethod.toLowerCase()) return false;
-      }
+
       // location
       if (filters.location) {
         if (r.latitude === undefined || r.longitude === undefined) return false;
@@ -321,9 +316,7 @@ export const DashboardView = () => {
           if (filters.dateTo) {
             query = query.lte('catch_date', format(filters.dateTo, 'yyyy-MM-dd'));
           }
-          if (filters.fishingMethod) {
-            query = query.eq('fishing_method', filters.fishingMethod);
-          }
+    
           if (filters.bounds) {
             query = query
               .gte('latitude', filters.bounds.south)

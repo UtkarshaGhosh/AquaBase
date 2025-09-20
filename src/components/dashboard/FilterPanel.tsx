@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Filter, Download, Sparkles } from "lucide-react";
+import { CalendarIcon, Filter, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 
 interface FilterPanelProps {
@@ -12,7 +12,6 @@ interface FilterPanelProps {
     species?: string;
     dateFrom?: Date;
     dateTo?: Date;
-    fishingMethod?: string;
     location?: string;
   };
   onFiltersChange: (filters: any) => void;
@@ -33,7 +32,7 @@ export const FilterPanel = ({
   isLoading,
   onApply
 }: FilterPanelProps & { onApply?: () => void }) => {
-  const hasActiveFilters = !!(filters.species || filters.dateFrom || filters.dateTo || filters.fishingMethod || filters.location);
+  const hasActiveFilters = !!(filters.species || filters.dateFrom || filters.dateTo || filters.location);
 
   return (
     <Card className="bg-card border shadow-data">
@@ -71,23 +70,6 @@ export const FilterPanel = ({
             </Select>
           </div>
 
-          <div>
-            <Select
-              value={filters.fishingMethod || "all"}
-              onValueChange={(value) => onFiltersChange({ ...filters, fishingMethod: value === "all" ? undefined : value })}
-            >
-              <SelectTrigger className="bg-background border-border">
-                <SelectValue placeholder="All methods" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All methods</SelectItem>
-                <SelectItem value="Trawling">Trawling</SelectItem>
-                <SelectItem value="Longlining">Longlining</SelectItem>
-                <SelectItem value="Net fishing">Net fishing</SelectItem>
-                <SelectItem value="Rod and reel">Rod and reel</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
 
           <div>
             <Select

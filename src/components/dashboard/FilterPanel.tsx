@@ -30,8 +30,9 @@ export const FilterPanel = ({
   onFindHotspots,
   species,
   locations = [],
-  isLoading
-}: FilterPanelProps) => {
+  isLoading,
+  onApply
+}: FilterPanelProps & { onApply?: () => void }) => {
   const hasActiveFilters = !!(filters.species || filters.dateFrom || filters.dateTo || filters.fishingMethod || filters.location);
 
   return (
@@ -155,7 +156,7 @@ export const FilterPanel = ({
           </Button>
           <Button
             variant="outline"
-            onClick={() => onFiltersChange(filters)}
+            onClick={() => { if (onApply) onApply(); }}
             className="w-40"
             disabled={isLoading}
           >

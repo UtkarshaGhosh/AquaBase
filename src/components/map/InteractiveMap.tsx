@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { MapPin } from "lucide-react";
+import { Button } from '@/components/ui/button';
 import 'leaflet/dist/leaflet.css';
+import * as L from 'leaflet';
+import 'leaflet.heat';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap, useMapEvents } from 'react-leaflet';
 
 interface FishCatch {

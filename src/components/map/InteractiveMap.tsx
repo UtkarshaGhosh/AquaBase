@@ -102,14 +102,13 @@ export const InteractiveMap = ({ data, onBoundsChange, className }: InteractiveM
             return;
         try {
             const gradient: Record<number, string> = {
-                0.0: '#0b1021',
-                0.2: '#2441a6',
-                0.4: '#1ebbd7',
-                0.6: '#44ce7b',
-                0.8: '#f7e26b',
-                1.0: '#f94144',
+                0.2: '#0000ff',
+                0.4: '#00ffff',
+                0.6: '#00ff00',
+                0.8: '#ffff00',
+                1.0: '#ff0000',
             };
-            heatRef.current = (L as any).heatLayer(heatPoints, { radius: 25, blur: 15, maxZoom: 17, max: 1, gradient }).addTo(map);
+            heatRef.current = (L as any).heatLayer(heatPoints, { radius: 30, blur: 20, maxZoom: 17, max: 1, minOpacity: 0.6, gradient }).addTo(map);
         }
         catch (e) {
         }

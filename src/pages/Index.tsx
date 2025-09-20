@@ -104,6 +104,8 @@ const Index = () => {
           </div>);
             case 'upload':
                 return <UploadView />;
+            case 'community':
+                return <Community />;
             default:
                 return <DashboardView />;
         }

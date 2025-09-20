@@ -164,10 +164,11 @@ export const UploadView = () => {
             const isAbort = err?.name === 'AbortError' || err === 'timeout';
             toast({
                 title: isAbort ? 'Anomaly detection timed out' : 'Anomaly detection fallback',
-                description: isAbort ? 'Service took too long (possibly waking). Used heuristic/local flags instead.' : 'AI service unavailable. Used heuristic/local flags instead.',
+                description: isAbort ? 'Service took too long (possibly waking). Used local model instead.' : 'AI service unavailable. Used local model instead.',
                 variant: isAbort ? 'default' : 'destructive'
             });
-            return records;
+            const updatedLocal = runLocalModel(records, 0.6, targetAnomalies);
+            return updatedLocal;
         } finally {
             if (timeoutId !== undefined) clearTimeout(timeoutId);
             setDetecting(false);
@@ -185,14 +186,16 @@ export const UploadView = () => {
         try {
             const text = await file.text();
             const records = parseCSV(text);
-            setParsedRecords(records);
+            await trainLocalModel(records);
+            const locallyScored = runLocalModel(records, 0.6, targetAnomalies);
+            setParsedRecords(locallyScored);
             try {
-                localStorage.setItem('uploaded_fish_catches', JSON.stringify(records));
+                localStorage.setItem('uploaded_fish_catches', JSON.stringify(locallyScored));
                 try { window.dispatchEvent(new Event('uploaded-data-changed')); } catch {}
             } catch {}
             try { if (queryClient) queryClient.invalidateQueries(['fish-catches']); } catch {}
             setUploadStatus('success');
-            toast({ title: "Upload successful", description: `${file.name} has been uploaded and parsed (${records.length} records).` });
+            toast({ title: "Upload successful", description: `${file.name} has been uploaded and parsed (${records.length} records). Local model trained and applied.` });
             // Trigger anomaly detection asynchronously and update state/storage when done
             (async () => {
                 toast({ title: 'Detecting anomalies', description: 'Running AI anomaly detection...' });

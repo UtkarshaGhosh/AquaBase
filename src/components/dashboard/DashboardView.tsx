@@ -306,11 +306,7 @@ export const DashboardView = () => {
               fishing_method,
               quality_score,
               is_anomaly,
-              species:species_id (
-                id,
-                common_name,
-                scientific_name
-              )
+              species_id
             `, { count: 'exact' })
             .order('catch_date', { ascending: false })
             .range(from, to);

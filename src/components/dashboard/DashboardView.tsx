@@ -26,6 +26,7 @@ export const DashboardView = () => {
   const [filters, setFilters] = useState<Filters>({});
   const [tempFilters, setTempFilters] = useState<Filters>(filters);
   const { toast } = useToast();
+  const [exporting, setExporting] = useState(false);
 
   // keep tempFilters synced when filters applied externally
   useEffect(() => {
@@ -274,49 +275,136 @@ export const DashboardView = () => {
     };
   }, [filteredData]);
 
-  const handleExport = () => {
-    const exportData = filteredData || [];
-    if (exportData.length === 0) {
-      toast({
-        title: "No data to export",
-        description: "Please adjust your filters or upload data to include some records.",
-        variant: "destructive"
-      });
-      return;
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+
+      // If user uploaded a CSV, export the filtered client-side data (already contains all rows)
+      let exportData: any[] = [];
+      const hasUploaded = uploadedRecords && uploadedRecords.length > 0;
+
+      if (hasUploaded) {
+        exportData = filteredData || [];
+      } else {
+        // Fetch ALL filtered rows from Supabase (no preview limit), in chunks
+        const pageSize = 1000;
+        let from = 0;
+        let to = pageSize - 1;
+        let done = false;
+        const all: any[] = [];
+
+        while (!done) {
+          let query = supabase
+            .from('fish_catches')
+            .select(`
+              id,
+              latitude,
+              longitude,
+              catch_date,
+              quantity,
+              weight_kg,
+              fishing_method,
+              quality_score,
+              is_anomaly,
+              species:species_id (
+                id,
+                common_name,
+                scientific_name
+              )
+            `, { count: 'exact' })
+            .order('catch_date', { ascending: false })
+            .range(from, to);
+
+          if (filters.species) {
+            query = query.eq('species_id', filters.species);
+          }
+          if (filters.dateFrom) {
+            query = query.gte('catch_date', format(filters.dateFrom, 'yyyy-MM-dd'));
+          }
+          if (filters.dateTo) {
+            query = query.lte('catch_date', format(filters.dateTo, 'yyyy-MM-dd'));
+          }
+          if (filters.fishingMethod) {
+            query = query.eq('fishing_method', filters.fishingMethod);
+          }
+          if (filters.bounds) {
+            query = query
+              .gte('latitude', filters.bounds.south)
+              .lte('latitude', filters.bounds.north)
+              .gte('longitude', filters.bounds.west)
+              .lte('longitude', filters.bounds.east);
+          }
+
+          const { data, error } = await query;
+          if (error) throw error;
+          const batch = data || [];
+          all.push(...batch);
+
+          if (batch.length < pageSize) done = true;
+          else {
+            from += pageSize;
+            to += pageSize;
+          }
+        }
+
+        // Apply any client-only filters (like precise location bucket)
+        exportData = all.filter((r: any) => {
+          if (filters.location) {
+            if (r.latitude === undefined || r.longitude === undefined) return false;
+            const latR = Number(r.latitude).toFixed(2);
+            const lonR = Number(r.longitude).toFixed(2);
+            const id = `${latR},${lonR}`;
+            if (id !== filters.location) return false;
+          }
+          return true;
+        });
+      }
+
+      if (exportData.length === 0) {
+        toast({
+          title: 'No data to export',
+          description: 'Please adjust your filters or upload data to include some records.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // CSV with escaping
+      const escape = (v: any) => {
+        const s = String(v ?? '');
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      };
+
+      const headers = ['Date', 'Species (Common)', 'Species (Scientific)', 'Latitude', 'Longitude', 'Quantity', 'Weight (kg)', 'Fishing Method', 'Quality Score'];
+      const rows = exportData.map((c) => [
+        escape(c.catch_date),
+        escape(c.species?.common_name || ''),
+        escape(c.species?.scientific_name || ''),
+        escape(c.latitude),
+        escape(c.longitude),
+        escape(c.quantity),
+        escape(c.weight_kg || ''),
+        escape(c.fishing_method || ''),
+        escape(c.quality_score || ''),
+      ].join(','));
+      const csvContent = [headers.join(','), ...rows].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `fish-catch-data-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast({ title: 'Data exported successfully', description: `Downloaded ${exportData.length} records to CSV file.` });
+    } catch (e: any) {
+      toast({ title: 'Export failed', description: e?.message || 'Unexpected error during export.', variant: 'destructive' });
+    } finally {
+      setExporting(false);
     }
-
-    // Create CSV content
-    const headers = ['Date', 'Species (Common)', 'Species (Scientific)', 'Latitude', 'Longitude', 'Quantity', 'Weight (kg)', 'Fishing Method', 'Quality Score'];
-    const csvContent = [
-      headers.join(','),
-      ...exportData.map(catch_item => [
-        catch_item.catch_date,
-        catch_item.species?.common_name || '',
-        catch_item.species?.scientific_name || '',
-        catch_item.latitude,
-        catch_item.longitude,
-        catch_item.quantity,
-        catch_item.weight_kg || '',
-        catch_item.fishing_method || '',
-        catch_item.quality_score || ''
-      ].join(','))
-    ].join('\n');
-
-    // Download CSV
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `fish-catch-data-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-
-    toast({
-      title: "Data exported successfully",
-      description: `Downloaded ${exportData.length} records to CSV file.`
-    });
   };
 
   const handleFindHotspots = () => {
@@ -409,7 +497,7 @@ export const DashboardView = () => {
               onFindHotspots={handleFindHotspots}
               species={speciesForFilter}
               locations={locationOptions}
-              isLoading={isLoading}
+              isLoading={isLoading || exporting}
               onApply={() => setFilters(tempFilters)}
             />
           </div>

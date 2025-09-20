@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  packageManager = "npm@10"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # Ensure devDependencies are installed for build tools like Vite
+  NPM_FLAGS = "--include=dev"

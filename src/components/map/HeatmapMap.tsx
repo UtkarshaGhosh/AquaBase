@@ -39,11 +39,31 @@ function nameFromSpecies(s?: SpeciesInfo, fallback?: any): string {
 
 export const HeatmapMap: FC<HeatmapMapProps> = ({ initialData = [], className }) => {
   const [csvRows, setCsvRows] = useState<any[] | null>(null);
+  const [uploadedRows, setUploadedRows] = useState<any[] | null>(null);
   const [selectedSpecies, setSelectedSpecies] = useState<string>('all');
 
-  // Normalize incoming data (from CSV or initialData) into a common shape for aggregation
+  // keep uploaded data in sync with UploadView (localStorage)
+  React.useEffect(() => {
+    function readUploaded() {
+      try {
+        const raw = localStorage.getItem('uploaded_fish_catches');
+        if (!raw) { setUploadedRows(null); return; }
+        const parsed = JSON.parse(raw);
+        setUploadedRows(Array.isArray(parsed) ? parsed : null);
+      } catch (e) { setUploadedRows(null); }
+    }
+    readUploaded();
+    window.addEventListener('uploaded-data-changed', readUploaded);
+    window.addEventListener('storage', readUploaded);
+    return () => {
+      window.removeEventListener('uploaded-data-changed', readUploaded);
+      window.removeEventListener('storage', readUploaded);
+    };
+  }, []);
+
+  // Normalize incoming data (from CSV, uploaded data, or initialData) into a common shape for aggregation
   const rows = useMemo(() => {
-    const source = csvRows ?? initialData ?? [];
+    const source = csvRows ?? uploadedRows ?? initialData ?? [];
     return source
       .map((r: any) => {
         const lat = r.latitude ?? r.lat ?? r.Latitude ?? r.Lat ?? r.LATITUDE;

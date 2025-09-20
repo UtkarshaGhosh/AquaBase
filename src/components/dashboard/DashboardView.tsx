@@ -93,23 +93,54 @@ export const DashboardView = () => {
     }
   });
 
-  // Calculate statistics
+  // Read any uploaded records from localStorage and merge with backend data
+  const uploadedRecords = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem('uploaded_fish_catches');
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed;
+    } catch (e) {
+      return [];
+    }
+  }, [typeof window !== 'undefined' && localStorage.getItem('uploaded_fish_catches')]);
+
+  const combinedData = React.useMemo(() => {
+    return [...(fishCatches || []), ...(uploadedRecords || [])];
+  }, [fishCatches, uploadedRecords]);
+
+  // Calculate statistics from combined data
   const stats = React.useMemo(() => {
-    const uniqueSpeciesSet = new Set(fishCatches.map(c => c.species?.id).filter(Boolean));
-    const dates = fishCatches.map(c => c.catch_date).filter(Boolean);
-    const avgQuality = fishCatches.length > 0 
-      ? Math.round(fishCatches.reduce((sum, c) => sum + (c.quality_score || 0), 0) / fishCatches.length)
+    const uniqueSpeciesSet = new Set(combinedData.map(c => c.species?.id || c.species?.common_name).filter(Boolean));
+    const dates = combinedData.map(c => c.catch_date).filter(Boolean);
+    const avgQuality = combinedData.length > 0
+      ? Math.round(combinedData.reduce((sum, c) => sum + (c.quality_score || 0), 0) / combinedData.length)
       : 0;
 
+    const totalWeight = combinedData.reduce((sum, c) => sum + (Number(c.weight_kg) || 0), 0);
+    const avgWeightPerCatch = combinedData.length > 0 ? Math.round(totalWeight / combinedData.length) : 0;
+
+    // top species by weight
+    const speciesWeightMap = new Map<string, number>();
+    combinedData.forEach((c: any) => {
+      const name = c?.species?.common_name || c?.species?.scientific_name || 'Unknown';
+      speciesWeightMap.set(name, (speciesWeightMap.get(name) || 0) + (Number(c.weight_kg) || 0));
+    });
+    const topSpecies = Array.from(speciesWeightMap.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
+
     return {
-      totalCatches: fishCatches.length,
+      totalCatches: combinedData.length,
       uniqueSpecies: uniqueSpeciesSet.size,
-      dateRange: dates.length > 0 
+      dateRange: dates.length > 0
         ? `${Math.min(...dates.map(d => new Date(d).getFullYear()))} - ${Math.max(...dates.map(d => new Date(d).getFullYear()))}`
         : "No data",
-      avgQualityScore: avgQuality
+      avgQualityScore: avgQuality,
+      totalWeight,
+      avgWeightPerCatch,
+      topSpecies,
     };
-  }, [fishCatches]);
+  }, [combinedData]);
 
   const handleExport = () => {
     if (fishCatches.length === 0) {

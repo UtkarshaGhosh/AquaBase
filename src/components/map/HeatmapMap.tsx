@@ -36,12 +36,12 @@ function nameFromSpecies(s?: SpeciesInfo, fallback?: any): string {
   return s.common_name || s.scientific_name || String(fallback ?? '') || '';
 }
 
-export const HeatmapMap: FC<HeatmapMapProps> = ({ initialData = [], className }) => {
-  const [uploadedRows, setUploadedRows] = useState<any[] | null>(null);
-  const [selectedSpecies, setSelectedSpecies] = useState<string>('all');
+export const HeatmapMap: React.FC<HeatmapMapProps> = ({ initialData = [], className }) => {
+  const [uploadedRows, setUploadedRows] = React.useState<any[] | null>(null);
+  const [selectedSpecies, setSelectedSpecies] = React.useState<string>('all');
 
   // keep uploaded data in sync with UploadView (localStorage)
-  useEffect(() => {
+  React.useEffect(() => {
     function readUploaded() {
       try {
         const raw = localStorage.getItem('uploaded_fish_catches');
@@ -60,7 +60,7 @@ export const HeatmapMap: FC<HeatmapMapProps> = ({ initialData = [], className })
   }, []);
 
   // Normalize incoming data (from CSV, uploaded data, or initialData) into a common shape for aggregation
-  const rows = useMemo(() => {
+  const rows = React.useMemo(() => {
     const source = uploadedRows ?? initialData ?? [];
     return source
       .map((r: any) => {
@@ -93,13 +93,13 @@ export const HeatmapMap: FC<HeatmapMapProps> = ({ initialData = [], className })
 
   const [showHeat, setShowHeat] = useState(true);
 
-  const speciesOptions = useMemo(() => {
+  const speciesOptions = React.useMemo(() => {
     const set = new Set<string>();
     rows.forEach(r => { if (r.speciesName) set.add(r.speciesName); });
     return Array.from(set).sort();
   }, [rows]);
 
-  const aggregatedPoints = useMemo<HeatmapPoint[]>(() => {
+  const aggregatedPoints = React.useMemo<HeatmapPoint[]>(() => {
     const map = new Map<string, { lat: number; lng: number; value: number }>();
 
     const filtered = selectedSpecies === 'all' ? rows : rows.filter(r => r.speciesName === selectedSpecies);

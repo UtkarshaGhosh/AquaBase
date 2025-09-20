@@ -20,6 +20,35 @@ export const UploadView = () => {
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
+    const trainLocalModel = async (records: any[]) => {
+        const data = extractNumericFeatures(records, LOCAL_FEATURES);
+        const med = computeMedians(data);
+        const dataImp = imputeWithMedians(data, med);
+        const forest = new IsolationForest({ nTrees: 100, sampleSize: Math.min(256, Math.max(8, dataImp.length)) });
+        forest.fit(dataImp, LOCAL_FEATURES);
+        const model = forest.toModel();
+        localStorage.setItem(LOCAL_MODEL_KEY, JSON.stringify({ model, med }));
+        toast({ title: 'Local model trained', description: `Trained on ${records.length} rows with ${LOCAL_FEATURES.length} features.` });
+    };
+
+    const runLocalModel = (records: any[], threshold = 0.6) => {
+        const raw = localStorage.getItem(LOCAL_MODEL_KEY);
+        if (!raw) {
+            toast({ title: 'No local model found', description: 'Train the model first.', variant: 'destructive' });
+            return records;
+        }
+        const parsed = JSON.parse(raw);
+        const forest = IsolationForest.fromModel(parsed.model);
+        const med: number[] = parsed.med || [];
+        const feats = extractNumericFeatures(records, LOCAL_FEATURES);
+        const featsImp = imputeWithMedians(feats, med);
+        const updated = records.map((r, i) => {
+            const { score, isAnomaly } = forest.predict(featsImp[i], threshold);
+            return { ...r, anomaly_score: score, is_anomaly: isAnomaly };
+        });
+        return updated;
+    };
+
     const parseCSV = (text: string) => {
         const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
         if (lines.length === 0) return [];

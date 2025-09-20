@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Header } from "@/components/ui/navigation";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { UploadView } from "@/components/upload/UploadView";
@@ -7,6 +7,7 @@ import { HeatmapMap } from "@/components/map/HeatmapMap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import AuthPage from '@/components/auth/AuthPage';
 const Index = () => {
     const [currentPage, setCurrentPage] = useState('dashboard');
     const { data: mapDataFromBackend = [] } = useQuery({

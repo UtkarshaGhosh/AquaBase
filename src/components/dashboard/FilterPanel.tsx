@@ -13,21 +13,24 @@ interface FilterPanelProps {
     dateFrom?: Date;
     dateTo?: Date;
     fishingMethod?: string;
+    location?: string;
   };
   onFiltersChange: (filters: any) => void;
   onExport: () => void;
   onFindHotspots: () => void;
   species: Array<{ id: string; common_name: string; scientific_name: string }>;
+  locations?: Array<{ id: string; label: string }>;
   isLoading?: boolean;
 }
 
-export const FilterPanel = ({ 
-  filters, 
-  onFiltersChange, 
-  onExport, 
+export const FilterPanel = ({
+  filters,
+  onFiltersChange,
+  onExport,
   onFindHotspots,
-  species, 
-  isLoading 
+  species,
+  locations = [],
+  isLoading
 }: FilterPanelProps) => {
   return (
     <Card className="bg-card border shadow-data">

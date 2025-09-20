@@ -38,7 +38,7 @@ function MapEvents({ data, onBoundsChange }: { data: FishCatch[]; onBoundsChange
           b.extend([p.latitude, p.longitude]);
         }
         return b;
-      }, (window as any).L.latLngBounds([]));
+      }, L.latLngBounds([]));
 
       if (bounds.isValid()) {
         map.fitBounds(bounds, { padding: [50, 50] });

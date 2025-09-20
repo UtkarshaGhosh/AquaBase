@@ -35,6 +35,8 @@ export const UploadView = () => {
                 catch_date: obj.catch_date || obj.date || '',
                 quantity: obj.quantity ? Number(obj.quantity) : undefined,
                 weight_kg: obj.weight_kg ? Number(obj.weight_kg) : undefined,
+                depth_m: obj.depth_m ? Number(obj.depth_m) : undefined,
+                water_temperature: obj.water_temperature ? Number(obj.water_temperature) : undefined,
                 quality_score: obj.quality_score ? Number(obj.quality_score) : undefined,
                 fishing_method: obj.fishing_method || '',
                 species: {

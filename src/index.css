@@ -119,6 +119,7 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    background: radial-gradient(ellipse at top right, #001A33, #330033, #5C2D91);
+    color: hsl(var(--foreground));
   }
 }

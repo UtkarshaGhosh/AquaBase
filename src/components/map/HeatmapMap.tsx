@@ -143,24 +143,49 @@ export const HeatmapMap: React.FC<HeatmapMapProps> = ({ initialData = [], classN
           </div>
         </div>
 
-        <div className={`w-full h-[500px] ${className || ''}`}>
+        <div className={`relative w-full h-[500px] ${className || ''}`}>
           <MapContainer center={indiaCenter} zoom={5} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true} zoomControl={true}>
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            <HeatmapLayer
-              fitBoundsOnLoad
-              fitBoundsOnUpdate
-              points={aggregatedPoints}
-              longitudeExtractor={(p: HeatmapPoint) => p.lng}
-              latitudeExtractor={(p: HeatmapPoint) => p.lat}
-              intensityExtractor={(p: HeatmapPoint) => p.intensity}
-              radius={25}
-              blur={20}
-              max={1}
-            />
+            { showHeat && aggregatedPoints.length > 0 && (
+              <HeatmapLayer
+                fitBoundsOnLoad
+                fitBoundsOnUpdate
+                points={aggregatedPoints}
+                longitudeExtractor={(p: HeatmapPoint) => p.lng}
+                latitudeExtractor={(p: HeatmapPoint) => p.lat}
+                intensityExtractor={(p: HeatmapPoint) => p.intensity}
+                radius={25}
+                blur={20}
+                max={1}
+              />
+            )}
           </MapContainer>
+
+          <div className="absolute top-4 right-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 flex flex-col gap-2 items-stretch shadow-data" style={{ zIndex: 1000, pointerEvents: 'auto' }}>
+            <div className="min-w-[180px]">
+              <Select value={selectedSpecies} onValueChange={(v) => setSelectedSpecies(v)}>
+                <SelectTrigger className="bg-background border-border">
+                  <SelectValue placeholder="All species" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All species</SelectItem>
+                  {speciesOptions.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => setShowHeat(s => !s)}>{showHeat ? 'Hide Heatmap' : 'Show Heatmap'}</Button>
+              <Button size="sm" variant="outline" onClick={() => { setCsvRows(null); setSelectedSpecies('all'); }}>Use App Data</Button>
+            </div>
+
+            <label className="mt-2 text-xs text-muted-foreground">Upload CSV overrides app data</label>
+          </div>
         </div>
       </CardContent>
     </Card>

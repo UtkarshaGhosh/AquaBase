@@ -165,6 +165,40 @@ export const DashboardView = () => {
     setFilters(prev => ({ ...prev, bounds }));
   };
 
+  // Aggregated data for charts (derived from fetched fishCatches)
+  const speciesAggregation = React.useMemo(() => {
+    const map = new Map<string, number>();
+    fishCatches.forEach((c: any) => {
+      const name = c?.species?.common_name || c?.species?.scientific_name || 'Unknown';
+      const w = Number(c?.weight_kg) || 0;
+      map.set(name, (map.get(name) || 0) + w);
+    });
+    return Array.from(map.entries())
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [fishCatches]);
+
+  const trendData = React.useMemo(() => {
+    const map = new Map<string, number>(); // key = 'YYYY-MM'
+    fishCatches.forEach((c: any) => {
+      if (!c.catch_date) return;
+      const d = new Date(c.catch_date);
+      if (Number.isNaN(d.getTime())) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const w = Number(c?.weight_kg) || 0;
+      map.set(key, (map.get(key) || 0) + w);
+    });
+
+    const entries = Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    return entries.map(([key, value]) => {
+      const [yearStr, monthStr] = key.split('-');
+      const year = Number(yearStr);
+      const month = Number(monthStr);
+      const label = format(new Date(year, month - 1, 1), 'MMM yyyy');
+      return { label, value };
+    });
+  }, [fishCatches]);
+
   if (error) {
     return (
       <Alert variant="destructive" className="m-6">
@@ -211,8 +245,8 @@ export const DashboardView = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <InteractiveMap 
-                  data={fishCatches} 
+                <InteractiveMap
+                  data={fishCatches}
                   onBoundsChange={handleBoundsChange}
                 />
               </CardContent>
@@ -252,6 +286,31 @@ export const DashboardView = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Charts */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="bg-card border shadow-data">
+                <CardHeader>
+                  <CardTitle className="text-foreground">Catch Weight by Species</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[420px]">
+                    <SpeciesBarChart data={speciesAggregation} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card border shadow-data">
+                <CardHeader>
+                  <CardTitle className="text-foreground">Catch Trend Over Time</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[420px]">
+                    <CatchTrendLineChart data={trendData} />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>

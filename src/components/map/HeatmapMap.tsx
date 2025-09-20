@@ -1,0 +1,165 @@
+import React, { useMemo, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MapContainer, TileLayer } from 'react-leaflet';
+import { HeatmapLayer } from 'react-leaflet-heatmap-layer-v3';
+import * as d3 from 'd3';
+import 'leaflet/dist/leaflet.css';
+
+interface SpeciesInfo {
+  common_name?: string;
+  scientific_name?: string;
+}
+
+interface FishCatchLike {
+  latitude?: number;
+  longitude?: number;
+  weight_kg?: number;
+  quantity?: number;
+  species?: SpeciesInfo;
+}
+
+interface HeatmapPoint {
+  lat: number;
+  lng: number;
+  intensity: number;
+}
+
+interface HeatmapMapProps {
+  initialData?: FishCatchLike[];
+  className?: string;
+}
+
+function nameFromSpecies(s?: SpeciesInfo, fallback?: any): string {
+  if (!s) return String(fallback ?? '') || '';
+  return s.common_name || s.scientific_name || String(fallback ?? '') || '';
+}
+
+export const HeatmapMap: React.FC<HeatmapMapProps> = ({ initialData = [], className }) => {
+  const [csvRows, setCsvRows] = useState<any[] | null>(null);
+  const [selectedSpecies, setSelectedSpecies] = useState<string>('all');
+
+  // Normalize incoming data (from CSV or initialData) into a common shape for aggregation
+  const rows = useMemo(() => {
+    const source = csvRows ?? initialData ?? [];
+    return source
+      .map((r: any) => {
+        const lat = r.latitude ?? r.lat ?? r.Latitude ?? r.Lat ?? r.LATITUDE;
+        const lon = r.longitude ?? r.lng ?? r.lon ?? r.long ?? r.Longitude ?? r.Lon ?? r.LONGITUDE;
+        const w = r.weight_kg ?? r.weight ?? r.Weight ?? r.WEIGHT ?? r.total_weight ?? r.TotalWeight;
+        const q = r.quantity ?? r.qty ?? r.Quantity ?? r.QTY;
+        const species = r.species || undefined;
+        const speciesName = typeof r.species === 'string'
+          ? String(r.species)
+          : (r.species_common_name || r.species_scientific_name || nameFromSpecies(species, r.species_name || r.Species || r.SPECIES));
+
+        const latNum = Number(lat);
+        const lonNum = Number(lon);
+        const weightNum = w !== undefined && w !== '' ? Number(w) : undefined;
+        const qtyNum = q !== undefined && q !== '' ? Number(q) : undefined;
+
+        if (!Number.isFinite(latNum) || !Number.isFinite(lonNum)) return null;
+
+        return {
+          lat: latNum,
+          lng: lonNum,
+          weight: Number.isFinite(weightNum as number) ? (weightNum as number) : undefined,
+          quantity: Number.isFinite(qtyNum as number) ? (qtyNum as number) : undefined,
+          speciesName: speciesName ? String(speciesName) : '',
+        };
+      })
+      .filter(Boolean) as Array<{ lat: number; lng: number; weight?: number; quantity?: number; speciesName: string }>; 
+  }, [csvRows, initialData]);
+
+  const speciesOptions = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach(r => { if (r.speciesName) set.add(r.speciesName); });
+    return Array.from(set).sort();
+  }, [rows]);
+
+  const aggregatedPoints = useMemo<HeatmapPoint[]>(() => {
+    const map = new Map<string, { lat: number; lng: number; value: number }>();
+
+    const filtered = selectedSpecies === 'all' ? rows : rows.filter(r => r.speciesName === selectedSpecies);
+
+    for (const r of filtered) {
+      const key = `${r.lat},${r.lng}`;
+      const base = map.get(key) || { lat: r.lat, lng: r.lng, value: 0 };
+      const contribution = (r.weight ?? r.quantity ?? 1);
+      base.value += contribution;
+      map.set(key, base);
+    }
+
+    const arr = Array.from(map.values());
+    const maxValue = arr.reduce((m, p) => Math.max(m, p.value), 0);
+
+    return arr.map(p => ({ lat: p.lat, lng: p.lng, intensity: maxValue > 0 ? p.value / maxValue : 0 }));
+  }, [rows, selectedSpecies]);
+
+  const handleFile = async (file: File) => {
+    const text = await file.text();
+    const parsed = d3.csvParse(text);
+    const normalized = parsed.map(d => ({ ...d }));
+    setCsvRows(normalized);
+    setSelectedSpecies('all');
+  };
+
+  const handleFileChange = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const f = files[0];
+    handleFile(f);
+  };
+
+  const indiaCenter: [number, number] = [20.5937, 78.9629];
+
+  return (
+    <Card className="bg-card border shadow-ocean">
+      <CardHeader>
+        <CardTitle className="text-foreground">Density Heatmap</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col md:flex-row gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <Input type="file" accept=".csv" onChange={(e) => handleFileChange(e.target.files)} />
+            <Button variant="outline" onClick={() => setCsvRows(null)} disabled={!csvRows}>Use App Data</Button>
+          </div>
+          <div className="flex-1 min-w-[220px]">
+            <Select value={selectedSpecies} onValueChange={(v) => setSelectedSpecies(v)}>
+              <SelectTrigger className="bg-background border-border">
+                <SelectValue placeholder="All species" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All species</SelectItem>
+                {speciesOptions.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className={`w-full h-[500px] ${className || ''}`}>
+          <MapContainer center={indiaCenter} zoom={5} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true} zoomControl={true}>
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <HeatmapLayer
+              fitBoundsOnLoad
+              fitBoundsOnUpdate
+              points={aggregatedPoints}
+              longitudeExtractor={(p: HeatmapPoint) => p.lng}
+              latitudeExtractor={(p: HeatmapPoint) => p.lat}
+              intensityExtractor={(p: HeatmapPoint) => p.intensity}
+              radius={25}
+              blur={20}
+              max={1}
+            />
+          </MapContainer>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};

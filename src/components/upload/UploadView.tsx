@@ -87,7 +87,23 @@ export const UploadView = () => {
         return updated;
     };
 
-    const detectAnomalies = async (records: any[]) => {
+    const applyHeuristicAnomalies = (records: any[]) => {
+    return records.map(r => {
+        let score = 0;
+        if (r.latitude === undefined || r.longitude === undefined) score += 2;
+        if (r.quality_score !== undefined && r.quality_score < 50) score += 1;
+        if (r.quantity !== undefined && r.quantity <= 0) score += 1;
+        if (r.weight_kg !== undefined && (r.weight_kg <= 0 || r.weight_kg > 1000)) score += 1;
+        if (r.latitude !== undefined && (r.latitude < -90 || r.latitude > 90)) score += 1;
+        if (r.longitude !== undefined && (r.longitude < -180 || r.longitude > 180)) score += 1;
+        if (r.water_temperature !== undefined && (r.water_temperature < -5 || r.water_temperature > 40)) score += 1;
+        const is_anomaly = score > 0;
+        const anomaly_score = Math.min(1, score / 6);
+        return { ...r, is_anomaly, anomaly_score };
+    });
+};
+
+const detectAnomalies = async (records: any[]) => {
         if (!records || records.length === 0) return records;
         let timeoutId: number | undefined;
         try {

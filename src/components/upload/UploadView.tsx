@@ -6,212 +6,170 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
 export const UploadView = () => {
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
-  const [parsedRecords, setParsedRecords] = useState<any[]>([]);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const parseCSV = (text: string) => {
-    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    if (lines.length === 0) return [];
-    const header = lines[0].split(',').map(h => h.trim());
-    const rows = lines.slice(1);
-    const records = rows.map((row, idx) => {
-      const cols = row.split(',').map(c => c.trim());
-      const obj: any = {};
-      header.forEach((h, i) => {
-        obj[h] = cols[i] !== undefined ? cols[i] : '';
-      });
-      // Normalize to fish catch object
-      const rec: any = {
-        id: `${Date.now()}-${idx}`,
-        latitude: parseFloat(obj.latitude || obj.lat || '' ) || undefined,
-        longitude: parseFloat(obj.longitude || obj.lon || obj.long || '' ) || undefined,
-        catch_date: obj.catch_date || obj.date || '',
-        quantity: obj.quantity ? Number(obj.quantity) : undefined,
-        weight_kg: obj.weight_kg ? Number(obj.weight_kg) : undefined,
-        quality_score: obj.quality_score ? Number(obj.quality_score) : undefined,
-        fishing_method: obj.fishing_method || '',
-        species: {
-          scientific_name: obj.species_scientific_name || obj.species || '',
-          common_name: obj.species_common_name || ''
+    const [isDragOver, setIsDragOver] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+    const [parsedRecords, setParsedRecords] = useState<any[]>([]);
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
+    const parseCSV = (text: string) => {
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (lines.length === 0)
+            return [];
+        const header = lines[0].split(',').map(h => h.trim());
+        const rows = lines.slice(1);
+        const records = rows.map((row, idx) => {
+            const cols = row.split(',').map(c => c.trim());
+            const obj: any = {};
+            header.forEach((h, i) => {
+                obj[h] = cols[i] !== undefined ? cols[i] : '';
+            });
+            const rec: any = {
+                id: `${Date.now()}-${idx}`,
+                latitude: parseFloat(obj.latitude || obj.lat || '') || undefined,
+                longitude: parseFloat(obj.longitude || obj.lon || obj.long || '') || undefined,
+                catch_date: obj.catch_date || obj.date || '',
+                quantity: obj.quantity ? Number(obj.quantity) : undefined,
+                weight_kg: obj.weight_kg ? Number(obj.weight_kg) : undefined,
+                quality_score: obj.quality_score ? Number(obj.quality_score) : undefined,
+                fishing_method: obj.fishing_method || '',
+                species: {
+                    scientific_name: obj.species_scientific_name || obj.species || '',
+                    common_name: obj.species_common_name || ''
+                }
+            };
+            rec.is_anomaly = !(rec.latitude && rec.longitude) || (rec.quality_score !== undefined && rec.quality_score < 50);
+            return rec;
+        }).filter(r => r.catch_date || r.latitude !== undefined || r.longitude !== undefined);
+        return records;
+    };
+    const handleFileUpload = async (files: FileList | null) => {
+        if (!files || files.length === 0)
+            return;
+        const file = files[0];
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            toast({
+                title: "Invalid file type",
+                description: "Please upload a CSV file.",
+                variant: "destructive"
+            });
+            return;
         }
-      };
-      // detect anomaly: missing lat/long or weight or quality_score low
-      rec.is_anomaly = !(rec.latitude && rec.longitude) || (rec.quality_score !== undefined && rec.quality_score < 50);
-      return rec;
-    }).filter(r => r.catch_date || r.latitude !== undefined || r.longitude !== undefined);
-
-    return records;
-  };
-
-  const handleFileUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-
-    const file = files[0];
-
-    // Validate file type
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      toast({
-        title: "Invalid file type",
-        description: "Please upload a CSV file.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setUploadStatus('uploading');
-
-    try {
-      const text = await file.text();
-      const records = parseCSV(text);
-      setParsedRecords(records);
-      // persist to localStorage so dashboard can include them
-      try {
-        localStorage.setItem('uploaded_fish_catches', JSON.stringify(records));
-        // notify same-window listeners
-        try { window.dispatchEvent(new Event('uploaded-data-changed')); } catch (err) {}
-      } catch (e) {}
-
-      // Invalidate react-query cache to allow Dashboard to refetch
-      try {
-        if (queryClient) queryClient.invalidateQueries(['fish-catches']);
-      } catch (e) {}
-
-      setUploadStatus('success');
-      toast({
-        title: "Upload successful",
-        description: `${file.name} has been uploaded and parsed (${records.length} records).`
-      });
-    } catch (e) {
-      console.error(e);
-      setUploadStatus('error');
-      toast({
-        title: "Upload failed",
-        description: `There was an error processing ${file.name}.`,
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    handleFileUpload(e.dataTransfer.files);
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-surface">
+        setUploadStatus('uploading');
+        try {
+            const text = await file.text();
+            const records = parseCSV(text);
+            setParsedRecords(records);
+            try {
+                localStorage.setItem('uploaded_fish_catches', JSON.stringify(records));
+                try {
+                    window.dispatchEvent(new Event('uploaded-data-changed'));
+                }
+                catch (err) { }
+            }
+            catch (e) { }
+            try {
+                if (queryClient)
+                    queryClient.invalidateQueries(['fish-catches']);
+            }
+            catch (e) { }
+            setUploadStatus('success');
+            toast({
+                title: "Upload successful",
+                description: `${file.name} has been uploaded and parsed (${records.length} records).`
+            });
+        }
+        catch (e) {
+            console.error(e);
+            setUploadStatus('error');
+            toast({
+                title: "Upload failed",
+                description: `There was an error processing ${file.name}.`,
+                variant: 'destructive'
+            });
+        }
+    };
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragOver(true);
+    };
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragOver(false);
+    };
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        handleFileUpload(e.dataTransfer.files);
+    };
+    return (<div className="min-h-screen bg-gradient-surface">
       <div className="container mx-auto p-6 space-y-6">
         <div className="max-w-4xl mx-auto">
-          {/* Header */}
+          
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-foreground mb-2">Data Upload Portal</h1>
             <p className="text-muted-foreground">Upload your fish catch data files for analysis and visualization</p>
           </div>
 
-          {/* Upload Instructions */}
+          
           <Alert className="mb-6">
-            <Info className="h-4 w-4" />
+            <Info className="h-4 w-4"/>
             <AlertDescription>
               <strong>Upload Requirements:</strong> Please ensure your CSV file contains columns for species, latitude, longitude, catch_date, quantity, and weight_kg. 
               The system will automatically validate and process your data with AI-powered quality checks.
             </AlertDescription>
           </Alert>
 
-          {/* Upload Area */}
+          
           <Card className="bg-card border shadow-ocean">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-foreground">
-                <Upload className="h-5 w-5 text-primary" />
+                <Upload className="h-5 w-5 text-primary"/>
                 Upload Fish Catch Data
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div
-                className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
-                  isDragOver ? 'border-primary bg-primary/5' : 'border-border'
-                } ${uploadStatus === 'uploading' ? 'opacity-50' : ''}`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                {uploadStatus === 'idle' && (
-                  <>
-                    <FileSpreadsheet className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <div className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${isDragOver ? 'border-primary bg-primary/5' : 'border-border'} ${uploadStatus === 'uploading' ? 'opacity-50' : ''}`} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+                {uploadStatus === 'idle' && (<>
+                    <FileSpreadsheet className="h-16 w-16 text-muted-foreground mx-auto mb-4"/>
                     <h3 className="text-lg font-semibold text-foreground mb-2">Drop your CSV file here</h3>
                     <p className="text-muted-foreground mb-4">or click to browse files</p>
-                    <Input
-                      type="file"
-                      accept=".csv"
-                      onChange={(e) => handleFileUpload(e.target.files)}
-                      className="hidden"
-                      id="file-upload"
-                    />
-                    <Button 
-                      asChild 
-                      className="bg-gradient-ocean text-white hover:opacity-90"
-                    >
+                    <Input type="file" accept=".csv" onChange={(e) => handleFileUpload(e.target.files)} className="hidden" id="file-upload"/>
+                    <Button asChild className="bg-gradient-ocean text-white hover:opacity-90">
                       <label htmlFor="file-upload" className="cursor-pointer">
                         Choose File
                       </label>
                     </Button>
-                  </>
-                )}
+                  </>)}
 
-                {uploadStatus === 'uploading' && (
-                  <>
+                {uploadStatus === 'uploading' && (<>
                     <div className="animate-spin h-16 w-16 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
                     <h3 className="text-lg font-semibold text-foreground mb-2">Processing your data...</h3>
                     <p className="text-muted-foreground">Running AI quality checks and validation</p>
-                  </>
-                )}
+                  </>)}
 
-                {uploadStatus === 'success' && (
-                  <>
-                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                {uploadStatus === 'success' && (<>
+                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4"/>
                     <h3 className="text-lg font-semibold text-foreground mb-2">Upload successful!</h3>
                     <p className="text-muted-foreground mb-4">Your data has been processed and is now available in the dashboard</p>
-                    <Button 
-                      onClick={() => setUploadStatus('idle')}
-                      variant="outline"
-                    >
+                    <Button onClick={() => setUploadStatus('idle')} variant="outline">
                       Upload Another File
                     </Button>
-                  </>
-                )}
+                  </>)}
 
-                {uploadStatus === 'error' && (
-                  <>
-                    <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+                {uploadStatus === 'error' && (<>
+                    <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4"/>
                     <h3 className="text-lg font-semibold text-foreground mb-2">Upload failed</h3>
                     <p className="text-muted-foreground mb-4">There was an error processing your file</p>
-                    <Button 
-                      onClick={() => setUploadStatus('idle')}
-                      variant="outline"
-                    >
+                    <Button onClick={() => setUploadStatus('idle')} variant="outline">
                       Try Again
                     </Button>
-                  </>
-                )}
+                  </>)}
               </div>
             </CardContent>
           </Card>
 
-          {/* CSV Format Guide */}
+          
           <Card className="bg-card border shadow-data">
             <CardHeader>
               <CardTitle className="text-foreground">CSV Format Guide</CardTitle>
@@ -253,7 +211,7 @@ export const UploadView = () => {
             </CardContent>
           </Card>
 
-          {/* Flagged anomalies and preview of uploaded data */}
+          
           <Card className="bg-card border shadow-data">
             <CardHeader>
               <CardTitle className="text-foreground">Flagged Anomalies (first 10)</CardTitle>
@@ -273,8 +231,7 @@ export const UploadView = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {parsedRecords.filter(r => r.is_anomaly).slice(0, 10).map((r, i) => (
-                      <tr key={r.id || i} className="border-t">
+                    {parsedRecords.filter(r => r.is_anomaly).slice(0, 10).map((r, i) => (<tr key={r.id || i} className="border-t">
                         <td className="p-2">{r.catch_date || '-'}</td>
                         <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
                         <td className="p-2">{r.latitude ?? '-'}</td>
@@ -282,13 +239,10 @@ export const UploadView = () => {
                         <td className="p-2">{r.quantity ?? '-'}</td>
                         <td className="p-2">{r.weight_kg ?? '-'}</td>
                         <td className="p-2">{r.quality_score ?? '-'}</td>
-                      </tr>
-                    ))}
+                      </tr>))}
                   </tbody>
                 </table>
-                {parsedRecords.filter(r => r.is_anomaly).length === 0 && (
-                  <div className="text-xs text-muted-foreground p-2">No flagged anomalies found in the uploaded file.</div>
-                )}
+                {parsedRecords.filter(r => r.is_anomaly).length === 0 && (<div className="text-xs text-muted-foreground p-2">No flagged anomalies found in the uploaded file.</div>)}
               </div>
             </CardContent>
           </Card>
@@ -312,8 +266,7 @@ export const UploadView = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {parsedRecords.slice(0, 10).map((r, i) => (
-                      <tr key={r.id || i} className="border-t">
+                    {parsedRecords.slice(0, 10).map((r, i) => (<tr key={r.id || i} className="border-t">
                         <td className="p-2">{r.catch_date || '-'}</td>
                         <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
                         <td className="p-2">{r.latitude ?? '-'}</td>
@@ -321,18 +274,14 @@ export const UploadView = () => {
                         <td className="p-2">{r.quantity ?? '-'}</td>
                         <td className="p-2">{r.weight_kg ?? '-'}</td>
                         <td className="p-2">{r.quality_score ?? '-'}</td>
-                      </tr>
-                    ))}
+                      </tr>))}
                   </tbody>
                 </table>
-                {parsedRecords.length === 0 && (
-                  <div className="text-xs text-muted-foreground p-2">No data parsed yet. Upload a CSV to preview rows.</div>
-                )}
+                {parsedRecords.length === 0 && (<div className="text-xs text-muted-foreground p-2">No data parsed yet. Upload a CSV to preview rows.</div>)}
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-    </div>
-  );
+    </div>);
 };

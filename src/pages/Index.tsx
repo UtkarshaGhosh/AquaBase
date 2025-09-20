@@ -7,17 +7,14 @@ import { HeatmapMap } from "@/components/map/HeatmapMap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-
 const Index = () => {
-  const [currentPage, setCurrentPage] = useState('dashboard');
-
-  // Fetch fish catch data for map view
-  const { data: mapDataFromBackend = [] } = useQuery({
-    queryKey: ['fish-catches-map'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('fish_catches')
-        .select(`
+    const [currentPage, setCurrentPage] = useState('dashboard');
+    const { data: mapDataFromBackend = [] } = useQuery({
+        queryKey: ['fish-catches-map'],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('fish_catches')
+                .select(`
           id,
           latitude,
           longitude,
@@ -29,78 +26,76 @@ const Index = () => {
             scientific_name
           )
         `)
-        .limit(200);
-
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: currentPage === 'map'
-  });
-
-  const [uploadedRecords, setUploadedRecords] = useState<any[]>(() => {
-    try {
-      const raw = localStorage.getItem('uploaded_fish_catches');
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      return [];
-    }
-  });
-
-  React.useEffect(() => {
-    function handler() {
-      try {
-        const raw = localStorage.getItem('uploaded_fish_catches');
-        if (!raw) { setUploadedRecords([]); return; }
-        const parsed = JSON.parse(raw);
-        setUploadedRecords(Array.isArray(parsed) ? parsed : []);
-      } catch (e) { setUploadedRecords([]); }
-    }
-    window.addEventListener('uploaded-data-changed', handler);
-    window.addEventListener('storage', handler);
-    return () => {
-      window.removeEventListener('uploaded-data-changed', handler);
-      window.removeEventListener('storage', handler);
-    };
-  }, []);
-
-  const mapData = uploadedRecords && uploadedRecords.length > 0 ? uploadedRecords : mapDataFromBackend;
-
-  const renderCurrentView = () => {
-    switch (currentPage) {
-      case 'dashboard':
-        return <DashboardView />;
-      case 'map':
-        return (
-          <div className="min-h-screen bg-gradient-surface">
+                .limit(200);
+            if (error)
+                throw error;
+            return data || [];
+        },
+        enabled: currentPage === 'map'
+    });
+    const [uploadedRecords, setUploadedRecords] = useState<any[]>(() => {
+        try {
+            const raw = localStorage.getItem('uploaded_fish_catches');
+            if (!raw)
+                return [];
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        }
+        catch (e) {
+            return [];
+        }
+    });
+    React.useEffect(() => {
+        function handler() {
+            try {
+                const raw = localStorage.getItem('uploaded_fish_catches');
+                if (!raw) {
+                    setUploadedRecords([]);
+                    return;
+                }
+                const parsed = JSON.parse(raw);
+                setUploadedRecords(Array.isArray(parsed) ? parsed : []);
+            }
+            catch (e) {
+                setUploadedRecords([]);
+            }
+        }
+        window.addEventListener('uploaded-data-changed', handler);
+        window.addEventListener('storage', handler);
+        return () => {
+            window.removeEventListener('uploaded-data-changed', handler);
+            window.removeEventListener('storage', handler);
+        };
+    }, []);
+    const mapData = uploadedRecords && uploadedRecords.length > 0 ? uploadedRecords : mapDataFromBackend;
+    const renderCurrentView = () => {
+        switch (currentPage) {
+            case 'dashboard':
+                return <DashboardView />;
+            case 'map':
+                return (<div className="min-h-screen bg-gradient-surface">
             <div className="container mx-auto p-6 space-y-6">
               <Card className="bg-card border shadow-ocean">
                 <CardHeader>
                   <CardTitle className="text-foreground">Fish Catch Map View</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <InteractiveMap data={mapData} className="h-[600px]" />
+                  <InteractiveMap data={mapData} className="h-[600px]"/>
                 </CardContent>
               </Card>
 
-              <HeatmapMap initialData={mapData} className="h-[600px]" />
+              <HeatmapMap initialData={mapData} className="h-[600px]"/>
             </div>
-          </div>
-        );
-      case 'upload':
-        return <UploadView />;
-      default:
-        return <DashboardView />;
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-background">
-      <Header currentPage={currentPage} onPageChange={setCurrentPage} />
+          </div>);
+            case 'upload':
+                return <UploadView />;
+            default:
+                return <DashboardView />;
+        }
+    };
+    return (<div className="min-h-screen bg-background">
+      <Header currentPage={currentPage} onPageChange={setCurrentPage}/>
       {renderCurrentView()}
-    </div>
-  );
+    </div>);
 };
-
 export default Index;

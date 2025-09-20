@@ -13,21 +13,24 @@ interface FilterPanelProps {
     dateFrom?: Date;
     dateTo?: Date;
     fishingMethod?: string;
+    location?: string;
   };
   onFiltersChange: (filters: any) => void;
   onExport: () => void;
   onFindHotspots: () => void;
   species: Array<{ id: string; common_name: string; scientific_name: string }>;
+  locations?: Array<{ id: string; label: string }>;
   isLoading?: boolean;
 }
 
-export const FilterPanel = ({ 
-  filters, 
-  onFiltersChange, 
-  onExport, 
+export const FilterPanel = ({
+  filters,
+  onFiltersChange,
+  onExport,
   onFindHotspots,
-  species, 
-  isLoading 
+  species,
+  locations = [],
+  isLoading
 }: FilterPanelProps) => {
   return (
     <Card className="bg-card border shadow-data">
@@ -104,8 +107,8 @@ export const FilterPanel = ({
         {/* Fishing Method */}
         <div>
           <label className="text-sm font-medium text-foreground mb-2 block">Fishing Method</label>
-          <Select 
-            value={filters.fishingMethod || "all"} 
+          <Select
+            value={filters.fishingMethod || "all"}
             onValueChange={(value) => onFiltersChange({ ...filters, fishingMethod: value === "all" ? undefined : value })}
           >
             <SelectTrigger className="bg-background border-border">
@@ -117,6 +120,25 @@ export const FilterPanel = ({
               <SelectItem value="Longlining">Longlining</SelectItem>
               <SelectItem value="Net fishing">Net fishing</SelectItem>
               <SelectItem value="Rod and reel">Rod and reel</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Location Filter */}
+        <div>
+          <label className="text-sm font-medium text-foreground mb-2 block">Location</label>
+          <Select
+            value={filters.location || "all"}
+            onValueChange={(value) => onFiltersChange({ ...filters, location: value === "all" ? undefined : value })}
+          >
+            <SelectTrigger className="bg-background border-border">
+              <SelectValue placeholder="All locations" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All locations</SelectItem>
+              {locations.map((loc) => (
+                <SelectItem key={loc.id} value={loc.id}>{loc.label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

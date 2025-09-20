@@ -4,11 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilterPanel } from './FilterPanel';
 import { StatsCards } from './StatsCards';
-import { InteractiveMap } from '../map/InteractiveMap';
+import SpeciesBarChart from '@/components/charts/SpeciesBarChart';
+import CatchTrendLineChart from '@/components/charts/CatchTrendLineChart';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
 
 interface Filters {
   species?: string;
@@ -20,7 +22,13 @@ interface Filters {
 
 export const DashboardView = () => {
   const [filters, setFilters] = useState<Filters>({});
+  const [tempFilters, setTempFilters] = useState<Filters>(filters);
   const { toast } = useToast();
+
+  // keep tempFilters synced when filters applied externally
+  useEffect(() => {
+    setTempFilters(filters);
+  }, [filters]);
 
   // Fetch species for filter dropdown
   const { data: species = [] } = useQuery({
@@ -92,29 +100,156 @@ export const DashboardView = () => {
     }
   });
 
-  // Calculate statistics
+  // Read any uploaded records from localStorage; listen for changes so dashboard updates in real-time
+  const [uploadedRecords, setUploadedRecords] = React.useState<any[]>(() => {
+    try {
+      if (typeof window === 'undefined') return [];
+      const raw = localStorage.getItem('uploaded_fish_catches');
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  React.useEffect(() => {
+    function handler() {
+      try {
+        const raw = localStorage.getItem('uploaded_fish_catches');
+        if (!raw) {
+          setUploadedRecords([]);
+          return;
+        }
+        const parsed = JSON.parse(raw);
+        setUploadedRecords(Array.isArray(parsed) ? parsed : []);
+      } catch (e) {
+        setUploadedRecords([]);
+      }
+    }
+
+    window.addEventListener('uploaded-data-changed', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('uploaded-data-changed', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, []);
+
+  // If uploaded records exist, use them instead of backend data (replace, not merge)
+  const combinedData = React.useMemo(() => {
+    if (uploadedRecords && uploadedRecords.length > 0) return uploadedRecords;
+    return fishCatches || [];
+  }, [fishCatches, uploadedRecords]);
+
+  // derive species options and location buckets from combined data
+  const speciesForFilter = React.useMemo(() => {
+    if (uploadedRecords && uploadedRecords.length > 0) {
+      const set = new Map<string, { id: string; common_name: string; scientific_name: string }>();
+      uploadedRecords.forEach((r: any) => {
+        const common = r.species?.common_name || r.species?.scientific_name || 'Unknown';
+        const scientific = r.species?.scientific_name || '';
+        if (!set.has(common)) set.set(common, { id: common, common_name: common, scientific_name: scientific });
+      });
+      return Array.from(set.values());
+    }
+    return species;
+  }, [uploadedRecords, species]);
+
+  const locations = React.useMemo(() => {
+    const set = new Map<string, string>();
+    combinedData.forEach((r: any) => {
+      if (r.latitude === undefined || r.longitude === undefined) return;
+      const lat = Number(r.latitude);
+      const lon = Number(r.longitude);
+      if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+      const latR = lat.toFixed(2);
+      const lonR = lon.toFixed(2);
+      const id = `${latR},${lonR}`;
+      const label = `${latR}, ${lonR}`;
+      if (!set.has(id)) set.set(id, label);
+    });
+    return Array.from(set.entries()).map(([id, label]) => ({ id, label }));
+  }, [combinedData]);
+
+  // Apply filters client-side to combinedData (when using uploaded data or after apply)
+  const filteredData = React.useMemo(() => {
+    return (combinedData || []).filter((r: any) => {
+      // species
+      if (filters.species) {
+        const sel = filters.species;
+        // find mapping from speciesForFilter
+        const entry = speciesForFilter.find(s => s.id === sel);
+        if (entry) {
+          const common = r.species?.common_name || r.species?.scientific_name || '';
+          const sci = r.species?.scientific_name || '';
+          if (!(common === entry.common_name || sci === entry.scientific_name || r.species?.id === sel)) return false;
+        } else {
+          // no match entry, try direct id compare
+          if (r.species?.id && r.species.id !== sel) return false;
+        }
+      }
+      // date range
+      if (filters.dateFrom) {
+        const d = r.catch_date ? new Date(r.catch_date) : null;
+        if (!d || d < filters.dateFrom) return false;
+      }
+      if (filters.dateTo) {
+        const d = r.catch_date ? new Date(r.catch_date) : null;
+        if (!d || d > filters.dateTo) return false;
+      }
+      // fishing method
+      if (filters.fishingMethod) {
+        if ((r.fishing_method || r.fishingMethod || '').toLowerCase() !== filters.fishingMethod.toLowerCase()) return false;
+      }
+      // location
+      if (filters.location) {
+        if (r.latitude === undefined || r.longitude === undefined) return false;
+        const latR = Number(r.latitude).toFixed(2);
+        const lonR = Number(r.longitude).toFixed(2);
+        const id = `${latR},${lonR}`;
+        if (id !== filters.location) return false;
+      }
+      return true;
+    });
+  }, [combinedData, filters, speciesForFilter]);
+
+  // Calculate statistics from filtered data
   const stats = React.useMemo(() => {
-    const uniqueSpeciesSet = new Set(fishCatches.map(c => c.species?.id).filter(Boolean));
-    const dates = fishCatches.map(c => c.catch_date).filter(Boolean);
-    const avgQuality = fishCatches.length > 0 
-      ? Math.round(fishCatches.reduce((sum, c) => sum + (c.quality_score || 0), 0) / fishCatches.length)
+    const dates = filteredData.map(c => c.catch_date).filter(Boolean);
+    const avgQuality = filteredData.length > 0
+      ? Math.round(filteredData.reduce((sum, c) => sum + (c.quality_score || 0), 0) / filteredData.length)
       : 0;
 
+    const totalWeight = filteredData.reduce((sum, c) => sum + (Number(c.weight_kg) || 0), 0);
+    const avgWeightPerCatch = filteredData.length > 0 ? Math.round(totalWeight / filteredData.length) : 0;
+
+    // top species by weight (based on filtered data)
+    const speciesWeightMap = new Map<string, number>();
+    filteredData.forEach((c: any) => {
+      const name = c?.species?.common_name || c?.species?.scientific_name || 'Unknown';
+      speciesWeightMap.set(name, (speciesWeightMap.get(name) || 0) + (Number(c.weight_kg) || 0));
+    });
+    const topSpecies = Array.from(speciesWeightMap.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
+
     return {
-      totalCatches: fishCatches.length,
-      uniqueSpecies: uniqueSpeciesSet.size,
-      dateRange: dates.length > 0 
+      totalCatches: filteredData.length,
+      dateRange: dates.length > 0
         ? `${Math.min(...dates.map(d => new Date(d).getFullYear()))} - ${Math.max(...dates.map(d => new Date(d).getFullYear()))}`
         : "No data",
-      avgQualityScore: avgQuality
+      avgQualityScore: avgQuality,
+      totalWeight,
+      avgWeightPerCatch,
+      topSpecies,
     };
-  }, [fishCatches]);
+  }, [filteredData]);
 
   const handleExport = () => {
-    if (fishCatches.length === 0) {
+    const exportData = filteredData || [];
+    if (exportData.length === 0) {
       toast({
         title: "No data to export",
-        description: "Please adjust your filters to include some data.",
+        description: "Please adjust your filters or upload data to include some records.",
         variant: "destructive"
       });
       return;
@@ -124,7 +259,7 @@ export const DashboardView = () => {
     const headers = ['Date', 'Species (Common)', 'Species (Scientific)', 'Latitude', 'Longitude', 'Quantity', 'Weight (kg)', 'Fishing Method', 'Quality Score'];
     const csvContent = [
       headers.join(','),
-      ...fishCatches.map(catch_item => [
+      ...exportData.map(catch_item => [
         catch_item.catch_date,
         catch_item.species?.common_name || '',
         catch_item.species?.scientific_name || '',
@@ -165,6 +300,40 @@ export const DashboardView = () => {
     setFilters(prev => ({ ...prev, bounds }));
   };
 
+  // Aggregated data for charts (derived from fetched fishCatches)
+  const speciesAggregation = React.useMemo(() => {
+    const map = new Map<string, number>();
+    filteredData.forEach((c: any) => {
+      const name = c?.species?.common_name || c?.species?.scientific_name || 'Unknown';
+      const w = Number(c?.weight_kg) || 0;
+      map.set(name, (map.get(name) || 0) + w);
+    });
+    return Array.from(map.entries())
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredData]);
+
+  const trendData = React.useMemo(() => {
+    const map = new Map<string, number>(); // key = 'YYYY-MM'
+    filteredData.forEach((c: any) => {
+      if (!c.catch_date) return;
+      const d = new Date(c.catch_date);
+      if (Number.isNaN(d.getTime())) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const w = Number(c?.weight_kg) || 0;
+      map.set(key, (map.get(key) || 0) + w);
+    });
+
+    const entries = Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    return entries.map(([key, value]) => {
+      const [yearStr, monthStr] = key.split('-');
+      const year = Number(yearStr);
+      const month = Number(monthStr);
+      const label = format(new Date(year, month - 1, 1), 'MMM yyyy');
+      return { label, value };
+    });
+  }, [filteredData]);
+
   if (error) {
     return (
       <Alert variant="destructive" className="m-6">
@@ -182,76 +351,55 @@ export const DashboardView = () => {
         {/* Statistics Overview */}
         <StatsCards
           totalCatches={stats.totalCatches}
-          uniqueSpecies={stats.uniqueSpecies}
           dateRange={stats.dateRange}
-          avgQualityScore={stats.avgQualityScore}
+          totalWeight={stats.totalWeight}
+          avgWeightPerCatch={stats.avgWeightPerCatch}
+          topSpecies={stats.topSpecies}
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Filter Panel */}
           <div className="lg:col-span-1">
             <FilterPanel
-              filters={filters}
-              onFiltersChange={setFilters}
+              filters={tempFilters}
+              onFiltersChange={setTempFilters}
               onExport={handleExport}
               onFindHotspots={handleFindHotspots}
-              species={species}
+              species={speciesForFilter}
+              locations={locations}
               isLoading={isLoading}
             />
+            <div className="mt-3">
+              <Button onClick={() => setFilters(tempFilters)} className="w-full bg-gradient-ocean text-white">Apply Filters</Button>
+            </div>
           </div>
 
-          {/* Map and Data View */}
+          {/* Charts and Data View */}
           <div className="lg:col-span-3 space-y-6">
-            {/* Interactive Map */}
-            <Card className="bg-card border shadow-ocean">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-foreground">
-                  <span>Interactive Map</span>
-                  {isLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <InteractiveMap 
-                  data={fishCatches} 
-                  onBoundsChange={handleBoundsChange}
-                />
-              </CardContent>
-            </Card>
+            {/* Charts */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="bg-card border shadow-data">
+                <CardHeader>
+                  <CardTitle className="text-foreground">Catch Weight by Species</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[420px]">
+                    <SpeciesBarChart data={speciesAggregation} />
+                  </div>
+                </CardContent>
+              </Card>
 
-            {/* Data Quality Overview */}
-            <Card className="bg-card border shadow-data">
-              <CardHeader>
-                <CardTitle className="text-foreground">Data Quality Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">
-                      {fishCatches.filter(c => !c.is_anomaly).length}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Clean Records</div>
+              <Card className="bg-card border shadow-data">
+                <CardHeader>
+                  <CardTitle className="text-foreground">Catch Trend Over Time</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[420px]">
+                    <CatchTrendLineChart data={trendData} />
                   </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-yellow-600">
-                      {fishCatches.filter(c => c.is_anomaly).length}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Flagged Anomalies</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {Math.round((fishCatches.filter(c => (c.quality_score || 0) >= 90).length / Math.max(fishCatches.length, 1)) * 100)}%
-                    </div>
-                    <div className="text-sm text-muted-foreground">High Quality</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-primary">
-                      {fishCatches.length}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Total Records</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>

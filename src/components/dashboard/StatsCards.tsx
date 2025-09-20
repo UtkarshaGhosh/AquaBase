@@ -4,16 +4,18 @@ import { Fish, Calendar, MapPin, TrendingUp } from "lucide-react";
 
 interface StatsCardsProps {
   totalCatches: number;
-  uniqueSpecies: number;
   dateRange: string;
-  avgQualityScore: number;
+  totalWeight?: number;
+  avgWeightPerCatch?: number;
+  topSpecies?: string;
 }
 
-export const StatsCards = ({ 
-  totalCatches, 
-  uniqueSpecies, 
-  dateRange, 
-  avgQualityScore 
+export const StatsCards = ({
+  totalCatches,
+  dateRange,
+  totalWeight = 0,
+  avgWeightPerCatch = 0,
+  topSpecies = 'N/A'
 }: StatsCardsProps) => {
   const stats = [
     {
@@ -23,27 +25,27 @@ export const StatsCards = ({
       subtitle: "catch records"
     },
     {
-      title: "Unique Species", 
-      value: uniqueSpecies.toString(),
-      icon: TrendingUp,
-      subtitle: "different species"
-    },
-    {
       title: "Date Range",
       value: dateRange,
       icon: Calendar,
       subtitle: "data coverage"
     },
     {
-      title: "Data Quality",
-      value: `${avgQualityScore}%`,
-      icon: MapPin,
-      subtitle: "avg quality score"
+      title: "Total Weight",
+      value: `${Number(totalWeight).toLocaleString()} kg`,
+      icon: Fish,
+      subtitle: "sum of weights"
+    },
+    {
+      title: "Avg Weight",
+      value: `${Number(avgWeightPerCatch).toLocaleString()} kg`,
+      icon: TrendingUp,
+      subtitle: "per catch"
     }
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
       {stats.map((stat, index) => {
         const Icon = stat.icon;
         return (
@@ -63,6 +65,17 @@ export const StatsCards = ({
           </Card>
         );
       })}
+
+      {/* Top species card spanning full width on small screens */}
+      <Card className="bg-card border shadow-data lg:col-span-6">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Top Species by Weight</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-xl font-semibold text-foreground">{topSpecies}</div>
+          <p className="text-xs text-muted-foreground mt-1">Top species in the selected filters</p>
+        </CardContent>
+      </Card>
     </div>
   );
 };

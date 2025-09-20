@@ -11,7 +11,7 @@ const Index = () => {
   const [currentPage, setCurrentPage] = useState('dashboard');
 
   // Fetch fish catch data for map view
-  const { data: mapData = [] } = useQuery({
+  const { data: mapDataFromBackend = [] } = useQuery({
     queryKey: ['fish-catches-map'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -29,12 +29,42 @@ const Index = () => {
           )
         `)
         .limit(200);
-      
+
       if (error) throw error;
       return data || [];
     },
     enabled: currentPage === 'map'
   });
+
+  const [uploadedRecords, setUploadedRecords] = useState<any[]>(() => {
+    try {
+      const raw = localStorage.getItem('uploaded_fish_catches');
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  React.useEffect(() => {
+    function handler() {
+      try {
+        const raw = localStorage.getItem('uploaded_fish_catches');
+        if (!raw) { setUploadedRecords([]); return; }
+        const parsed = JSON.parse(raw);
+        setUploadedRecords(Array.isArray(parsed) ? parsed : []);
+      } catch (e) { setUploadedRecords([]); }
+    }
+    window.addEventListener('uploaded-data-changed', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('uploaded-data-changed', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, []);
+
+  const mapData = uploadedRecords && uploadedRecords.length > 0 ? uploadedRecords : mapDataFromBackend;
 
   const renderCurrentView = () => {
     switch (currentPage) {

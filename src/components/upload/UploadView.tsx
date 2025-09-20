@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,13 +10,49 @@ import { useToast } from "@/hooks/use-toast";
 export const UploadView = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const [parsedRecords, setParsedRecords] = useState<any[]>([]);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const handleFileUpload = (files: FileList | null) => {
+  const parseCSV = (text: string) => {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return [];
+    const header = lines[0].split(',').map(h => h.trim());
+    const rows = lines.slice(1);
+    const records = rows.map((row, idx) => {
+      const cols = row.split(',').map(c => c.trim());
+      const obj: any = {};
+      header.forEach((h, i) => {
+        obj[h] = cols[i] !== undefined ? cols[i] : '';
+      });
+      // Normalize to fish catch object
+      const rec: any = {
+        id: `${Date.now()}-${idx}`,
+        latitude: parseFloat(obj.latitude || obj.lat || '' ) || undefined,
+        longitude: parseFloat(obj.longitude || obj.lon || obj.long || '' ) || undefined,
+        catch_date: obj.catch_date || obj.date || '',
+        quantity: obj.quantity ? Number(obj.quantity) : undefined,
+        weight_kg: obj.weight_kg ? Number(obj.weight_kg) : undefined,
+        quality_score: obj.quality_score ? Number(obj.quality_score) : undefined,
+        fishing_method: obj.fishing_method || '',
+        species: {
+          scientific_name: obj.species_scientific_name || obj.species || '',
+          common_name: obj.species_common_name || ''
+        }
+      };
+      // detect anomaly: missing lat/long or weight or quality_score low
+      rec.is_anomaly = !(rec.latitude && rec.longitude) || (rec.quality_score !== undefined && rec.quality_score < 50);
+      return rec;
+    }).filter(r => r.catch_date || r.latitude !== undefined || r.longitude !== undefined);
+
+    return records;
+  };
+
+  const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    
+
     const file = files[0];
-    
+
     // Validate file type
     if (!file.name.toLowerCase().endsWith('.csv')) {
       toast({
@@ -27,15 +64,37 @@ export const UploadView = () => {
     }
 
     setUploadStatus('uploading');
-    
-    // Simulate upload process
-    setTimeout(() => {
+
+    try {
+      const text = await file.text();
+      const records = parseCSV(text);
+      setParsedRecords(records);
+      // persist to localStorage so dashboard can include them
+      try {
+        localStorage.setItem('uploaded_fish_catches', JSON.stringify(records));
+        // notify same-window listeners
+        try { window.dispatchEvent(new Event('uploaded-data-changed')); } catch (err) {}
+      } catch (e) {}
+
+      // Invalidate react-query cache to allow Dashboard to refetch
+      try {
+        if (queryClient) queryClient.invalidateQueries(['fish-catches']);
+      } catch (e) {}
+
       setUploadStatus('success');
       toast({
         title: "Upload successful",
-        description: `${file.name} has been uploaded and is being processed.`
+        description: `${file.name} has been uploaded and parsed (${records.length} records).`
       });
-    }, 2000);
+    } catch (e) {
+      console.error(e);
+      setUploadStatus('error');
+      toast({
+        title: "Upload failed",
+        description: `There was an error processing ${file.name}.`,
+        variant: 'destructive'
+      });
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -190,6 +249,85 @@ export const UploadView = () => {
                     </ul>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Flagged anomalies and preview of uploaded data */}
+          <Card className="bg-card border shadow-data">
+            <CardHeader>
+              <CardTitle className="text-foreground">Flagged Anomalies (first 10)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="p-2">Date</th>
+                      <th className="p-2">Species</th>
+                      <th className="p-2">Lat</th>
+                      <th className="p-2">Lon</th>
+                      <th className="p-2">Qty</th>
+                      <th className="p-2">Weight (kg)</th>
+                      <th className="p-2">Quality</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsedRecords.filter(r => r.is_anomaly).slice(0, 10).map((r, i) => (
+                      <tr key={r.id || i} className="border-t">
+                        <td className="p-2">{r.catch_date || '-'}</td>
+                        <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
+                        <td className="p-2">{r.latitude ?? '-'}</td>
+                        <td className="p-2">{r.longitude ?? '-'}</td>
+                        <td className="p-2">{r.quantity ?? '-'}</td>
+                        <td className="p-2">{r.weight_kg ?? '-'}</td>
+                        <td className="p-2">{r.quality_score ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {parsedRecords.filter(r => r.is_anomaly).length === 0 && (
+                  <div className="text-xs text-muted-foreground p-2">No flagged anomalies found in the uploaded file.</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border shadow-data">
+            <CardHeader>
+              <CardTitle className="text-foreground">Data Preview (first 10 rows)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="p-2">Date</th>
+                      <th className="p-2">Species</th>
+                      <th className="p-2">Lat</th>
+                      <th className="p-2">Lon</th>
+                      <th className="p-2">Qty</th>
+                      <th className="p-2">Weight (kg)</th>
+                      <th className="p-2">Quality</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsedRecords.slice(0, 10).map((r, i) => (
+                      <tr key={r.id || i} className="border-t">
+                        <td className="p-2">{r.catch_date || '-'}</td>
+                        <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
+                        <td className="p-2">{r.latitude ?? '-'}</td>
+                        <td className="p-2">{r.longitude ?? '-'}</td>
+                        <td className="p-2">{r.quantity ?? '-'}</td>
+                        <td className="p-2">{r.weight_kg ?? '-'}</td>
+                        <td className="p-2">{r.quality_score ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {parsedRecords.length === 0 && (
+                  <div className="text-xs text-muted-foreground p-2">No data parsed yet. Upload a CSV to preview rows.</div>
+                )}
               </div>
             </CardContent>
           </Card>

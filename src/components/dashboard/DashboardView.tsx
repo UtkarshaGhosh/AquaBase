@@ -344,7 +344,7 @@ export const DashboardView = () => {
         }
 
         // Apply any client-only filters (like precise location bucket)
-        exportData = all.filter((r: any) => {
+        const filteredAll = all.filter((r: any) => {
           if (filters.location) {
             if (r.latitude === undefined || r.longitude === undefined) return false;
             const latR = Number(r.latitude).toFixed(2);
@@ -354,6 +354,18 @@ export const DashboardView = () => {
           }
           return true;
         });
+
+        // Enrich species names using the species lookup
+        const speciesMap = new Map<string, { common_name: string | null; scientific_name: string }>();
+        (species || []).forEach((s: any) => speciesMap.set(s.id, { common_name: s.common_name, scientific_name: s.scientific_name }));
+        exportData = filteredAll.map((r: any) => ({
+          ...r,
+          species: {
+            id: r.species_id,
+            common_name: speciesMap.get(r.species_id || '')?.common_name || null,
+            scientific_name: speciesMap.get(r.species_id || '')?.scientific_name || ''
+          }
+        }));
       }
 
       if (exportData.length === 0) {

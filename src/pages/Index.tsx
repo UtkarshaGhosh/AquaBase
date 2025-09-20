@@ -10,6 +10,19 @@ import { supabase } from '@/integrations/supabase/client';
 import AuthPage from '@/components/auth/AuthPage';
 const Index = () => {
     const [currentPage, setCurrentPage] = useState('dashboard');
+    const [sessionReady, setSessionReady] = useState(false);
+    const [hasSession, setHasSession] = useState(false);
+
+    useEffect(() => {
+        (async () => {
+            const { data } = await supabase.auth.getSession();
+            setHasSession(!!data.session);
+            setSessionReady(true);
+        })();
+        const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => setHasSession(!!s));
+        return () => { listener.subscription.unsubscribe(); };
+    }, []);
+
     const { data: mapDataFromBackend = [] } = useQuery({
         queryKey: ['fish-catches-map'],
         queryFn: async () => {
@@ -94,6 +107,12 @@ const Index = () => {
                 return <DashboardView />;
         }
     };
+    if (!sessionReady) {
+        return <div className="min-h-screen bg-background"/>;
+    }
+    if (!hasSession) {
+        return <AuthPage/>;
+    }
     return (<div className="min-h-screen bg-background">
       <Header currentPage={currentPage} onPageChange={setCurrentPage}/>
       {renderCurrentView()}

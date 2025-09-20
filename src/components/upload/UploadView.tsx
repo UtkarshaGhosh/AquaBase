@@ -9,13 +9,49 @@ import { useToast } from "@/hooks/use-toast";
 export const UploadView = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const [parsedRecords, setParsedRecords] = useState<any[]>([]);
   const { toast } = useToast();
+  const queryClient = require('@tanstack/react-query').useQueryClient?.() || null;
 
-  const handleFileUpload = (files: FileList | null) => {
+  const parseCSV = (text: string) => {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return [];
+    const header = lines[0].split(',').map(h => h.trim());
+    const rows = lines.slice(1);
+    const records = rows.map((row, idx) => {
+      const cols = row.split(',').map(c => c.trim());
+      const obj: any = {};
+      header.forEach((h, i) => {
+        obj[h] = cols[i] !== undefined ? cols[i] : '';
+      });
+      // Normalize to fish catch object
+      const rec: any = {
+        id: `${Date.now()}-${idx}`,
+        latitude: parseFloat(obj.latitude || obj.lat || '' ) || undefined,
+        longitude: parseFloat(obj.longitude || obj.lon || obj.long || '' ) || undefined,
+        catch_date: obj.catch_date || obj.date || '',
+        quantity: obj.quantity ? Number(obj.quantity) : undefined,
+        weight_kg: obj.weight_kg ? Number(obj.weight_kg) : undefined,
+        quality_score: obj.quality_score ? Number(obj.quality_score) : undefined,
+        fishing_method: obj.fishing_method || '',
+        species: {
+          scientific_name: obj.species_scientific_name || obj.species || '',
+          common_name: obj.species_common_name || ''
+        }
+      };
+      // detect anomaly: missing lat/long or weight or quality_score low
+      rec.is_anomaly = !(rec.latitude && rec.longitude) || (rec.quality_score !== undefined && rec.quality_score < 50);
+      return rec;
+    }).filter(r => r.catch_date || r.latitude !== undefined || r.longitude !== undefined);
+
+    return records;
+  };
+
+  const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    
+
     const file = files[0];
-    
+
     // Validate file type
     if (!file.name.toLowerCase().endsWith('.csv')) {
       toast({
@@ -27,15 +63,35 @@ export const UploadView = () => {
     }
 
     setUploadStatus('uploading');
-    
-    // Simulate upload process
-    setTimeout(() => {
+
+    try {
+      const text = await file.text();
+      const records = parseCSV(text);
+      setParsedRecords(records);
+      // persist to localStorage so dashboard can include them
+      try {
+        localStorage.setItem('uploaded_fish_catches', JSON.stringify(records));
+      } catch (e) {}
+
+      // Invalidate react-query cache to allow Dashboard to refetch
+      try {
+        if (queryClient) queryClient.invalidateQueries(['fish-catches']);
+      } catch (e) {}
+
       setUploadStatus('success');
       toast({
         title: "Upload successful",
-        description: `${file.name} has been uploaded and is being processed.`
+        description: `${file.name} has been uploaded and parsed (${records.length} records).`
       });
-    }, 2000);
+    } catch (e) {
+      console.error(e);
+      setUploadStatus('error');
+      toast({
+        title: "Upload failed",
+        description: `There was an error processing ${file.name}.`,
+        variant: 'destructive'
+      });
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {

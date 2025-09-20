@@ -6,6 +6,7 @@ import { FilterPanel } from './FilterPanel';
 import { StatsCards } from './StatsCards';
 import SpeciesBarChart from '@/components/charts/SpeciesBarChart';
 import CatchTrendLineChart from '@/components/charts/CatchTrendLineChart';
+import AbundanceChart from '@/components/charts/AbundanceChart';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -332,6 +333,18 @@ export const DashboardView = () => {
       const label = format(new Date(year, month - 1, 1), 'MMM yyyy');
       return { label, value };
     });
+  }, [filteredData]);
+
+  // Abundance aggregation: counts per species
+  const abundanceAggregation = React.useMemo(() => {
+    const map = new Map<string, number>();
+    filteredData.forEach((c: any) => {
+      const name = c?.species?.common_name || c?.species?.scientific_name || 'Unknown';
+      map.set(name, (map.get(name) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
   }, [filteredData]);
 
   if (error) {

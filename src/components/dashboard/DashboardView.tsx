@@ -221,6 +221,9 @@ export const DashboardView = () => {
           uniqueSpecies={stats.uniqueSpecies}
           dateRange={stats.dateRange}
           avgQualityScore={stats.avgQualityScore}
+          totalWeight={stats.totalWeight}
+          avgWeightPerCatch={stats.avgWeightPerCatch}
+          topSpecies={stats.topSpecies}
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -236,59 +239,8 @@ export const DashboardView = () => {
             />
           </div>
 
-          {/* Map and Data View */}
+          {/* Charts and Data View */}
           <div className="lg:col-span-3 space-y-6">
-            {/* Interactive Map */}
-            <Card className="bg-card border shadow-ocean">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-foreground">
-                  <span>Interactive Map</span>
-                  {isLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <InteractiveMap
-                  data={fishCatches}
-                  onBoundsChange={handleBoundsChange}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Data Quality Overview */}
-            <Card className="bg-card border shadow-data">
-              <CardHeader>
-                <CardTitle className="text-foreground">Data Quality Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-green-600">
-                      {fishCatches.filter(c => !c.is_anomaly).length}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Clean Records</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-yellow-600">
-                      {fishCatches.filter(c => c.is_anomaly).length}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Flagged Anomalies</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {Math.round((fishCatches.filter(c => (c.quality_score || 0) >= 90).length / Math.max(fishCatches.length, 1)) * 100)}%
-                    </div>
-                    <div className="text-sm text-muted-foreground">High Quality</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-primary">
-                      {fishCatches.length}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Total Records</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Charts */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="bg-card border shadow-data">

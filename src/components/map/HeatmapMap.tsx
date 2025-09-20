@@ -38,7 +38,7 @@ function nameFromSpecies(s?: SpeciesInfo, fallback?: any): string {
   return s.common_name || s.scientific_name || String(fallback ?? '') || '';
 }
 
-export const HeatmapMap: React.FC<HeatmapMapProps> = ({ initialData = [], className }) => {
+export const HeatmapMap: FC<HeatmapMapProps> = ({ initialData = [], className }) => {
   const [csvRows, setCsvRows] = useState<any[] | null>(null);
   const [selectedSpecies, setSelectedSpecies] = useState<string>('all');
 

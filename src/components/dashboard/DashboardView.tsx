@@ -292,13 +292,16 @@ export const DashboardView = () => {
           {/* Filter Panel */}
           <div className="lg:col-span-1">
             <FilterPanel
-              filters={filters}
-              onFiltersChange={setFilters}
+              filters={tempFilters}
+              onFiltersChange={setTempFilters}
               onExport={handleExport}
               onFindHotspots={handleFindHotspots}
               species={species}
               isLoading={isLoading}
             />
+            <div className="mt-3">
+              <Button onClick={() => setFilters(tempFilters)} className="w-full bg-gradient-ocean text-white">Apply Filters</Button>
+            </div>
           </div>
 
           {/* Charts and Data View */}

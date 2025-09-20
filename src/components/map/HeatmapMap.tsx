@@ -87,8 +87,10 @@ export const HeatmapMap: FC<HeatmapMapProps> = ({ initialData = [], className })
     const filtered = selectedSpecies === 'all' ? rows : rows.filter(r => r.speciesName === selectedSpecies);
 
     for (const r of filtered) {
-      const key = `${r.lat},${r.lng}`;
-      const base = map.get(key) || { lat: r.lat, lng: r.lng, value: 0 };
+      const latKey = Number(r.lat).toFixed(4);
+      const lngKey = Number(r.lng).toFixed(4);
+      const key = `${latKey},${lngKey}`;
+      const base = map.get(key) || { lat: Number(latKey), lng: Number(lngKey), value: 0 };
       const contribution = (r.weight ?? r.quantity ?? 1);
       base.value += contribution;
       map.set(key, base);

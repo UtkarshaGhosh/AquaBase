@@ -53,7 +53,7 @@ export const AuthPage: React.FC = () => {
   return (
     <div className="min-h-screen grid md:grid-cols-2 bg-background">
       <div className="hidden md:block relative">
-        <img src="/placeholder.jpg" alt="Placeholder" className="absolute inset-0 h-full w-full object-cover" />
+        <img src="/placeholder.jpg" alt="Placeholder" className="absolute inset-0 h-1/2 w-1/2 object-cover" />
       </div>
       <div className="flex items-center justify-center p-6">
         <Card className="w-full max-w-md bg-card border shadow-ocean">

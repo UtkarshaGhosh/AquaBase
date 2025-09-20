@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { MapPin } from "lucide-react";
-import { Button } from '@/components/ui/button';
 import 'leaflet/dist/leaflet.css';
 import * as L from 'leaflet';
 import 'leaflet.heat';
@@ -155,10 +154,5 @@ export const InteractiveMap = ({ data, onBoundsChange, className }: InteractiveM
             </CircleMarker>) : null))}
       </MapContainer>
 
-      <div className="absolute top-4 right-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 flex gap-2 items-center shadow-data" style={{ zIndex: 1000, pointerEvents: 'auto' }}>
-        <Button size="sm" variant={showHeat ? undefined : 'outline'} onClick={() => setShowHeat(s => !s)}>
-          {showHeat ? 'Hide Heatmap' : 'Show Heatmap'}
-        </Button>
-      </div>
     </div>);
 };

@@ -72,6 +72,8 @@ export const UploadView = () => {
       // persist to localStorage so dashboard can include them
       try {
         localStorage.setItem('uploaded_fish_catches', JSON.stringify(records));
+        // notify same-window listeners
+        try { window.dispatchEvent(new Event('uploaded-data-changed')); } catch (err) {}
       } catch (e) {}
 
       // Invalidate react-query cache to allow Dashboard to refetch

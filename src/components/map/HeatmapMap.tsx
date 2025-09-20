@@ -2,9 +2,10 @@ import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapContainer, TileLayer } from 'react-leaflet';
-import { HeatmapLayer } from 'react-leaflet-heatmap-layer-v3';
+import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.heat';
+import L from 'leaflet';
 
 interface SpeciesInfo {
   common_name?: string;
@@ -34,6 +35,44 @@ function nameFromSpecies(s?: SpeciesInfo, fallback?: any): string {
   if (!s) return String(fallback ?? '') || '';
   return s.common_name || s.scientific_name || String(fallback ?? '') || '';
 }
+
+function useHeatLayer(points: HeatmapPoint[], opts: { radius?: number; blur?: number; max?: number; fitBounds?: boolean }) {
+  const map = useMap();
+  React.useEffect(() => {
+    if (!points || points.length === 0) return;
+
+    const latlngs: [number, number, number][] = points.map(p => [p.lat, p.lng, p.intensity]);
+
+    const layer = (L as any).heatLayer(latlngs, {
+      radius: opts.radius ?? 25,
+      blur: opts.blur ?? 20,
+      max: opts.max ?? 1,
+      maxZoom: 18,
+    });
+
+    layer.addTo(map);
+
+    if (opts.fitBounds) {
+      const bounds = L.latLngBounds(latlngs.map(([lat, lng]) => [lat, lng] as [number, number]));
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [20, 20] });
+      }
+    }
+
+    return () => {
+      map.removeLayer(layer);
+    };
+  }, [map, JSON.stringify(points), opts.radius, opts.blur, opts.max, opts.fitBounds]);
+
+  return null;
+}
+
+const HeatLayer: React.FC<{ points: HeatmapPoint[]; radius?: number; blur?: number; max?: number; fitBoundsOnLoad?: boolean; fitBoundsOnUpdate?: boolean; }>
+= ({ points, radius, blur, max, fitBoundsOnLoad, fitBoundsOnUpdate }) => {
+  // Fit bounds on load and on updates if requested
+  useHeatLayer(points, { radius, blur, max, fitBounds: !!(fitBoundsOnLoad || fitBoundsOnUpdate) });
+  return null;
+};
 
 export const HeatmapMap: React.FC<HeatmapMapProps> = ({ initialData = [], className }) => {
   const [uploadedRows, setUploadedRows] = React.useState<any[] | null>(null);
@@ -136,13 +175,10 @@ export const HeatmapMap: React.FC<HeatmapMapProps> = ({ initialData = [], classN
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             { showHeat && aggregatedPoints.length > 0 && (
-              <HeatmapLayer
+              <HeatLayer
                 fitBoundsOnLoad
                 fitBoundsOnUpdate
                 points={aggregatedPoints}
-                longitudeExtractor={(p: HeatmapPoint) => p.lng}
-                latitudeExtractor={(p: HeatmapPoint) => p.lat}
-                intensityExtractor={(p: HeatmapPoint) => p.intensity}
                 radius={25}
                 blur={20}
                 max={1}

@@ -7,13 +7,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const ANOMALY_API_URL = 'https://fish-anomaly-api.onrender.com/detect-anomalies';
 
 export const UploadView = () => {
     const [isDragOver, setIsDragOver] = useState(false);
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
     const [parsedRecords, setParsedRecords] = useState<any[]>([]);
-    const [detecting, setDetecting] = useState(false);
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
@@ -46,107 +44,11 @@ export const UploadView = () => {
                     common_name: obj.species_common_name || ''
                 }
             };
-            // Initial conservative heuristic (start unflagged)
-            rec.is_anomaly = false;
             return rec;
         }).filter(r => r.catch_date || r.latitude !== undefined || r.longitude !== undefined);
         return records;
     };
 
-    const mapAnomalyBoolean = (v: any): boolean => {
-        if (typeof v === 'boolean') return v;
-        if (typeof v === 'number') return v === 1 || v === -1 || v > 0.5;
-        if (typeof v === 'string') return v.toLowerCase() === 'true' || v === '1' || v === '-1' || v.toLowerCase() === 'anomaly' || v.toLowerCase() === 'outlier';
-        return false;
-    };
-
-    const applyAnomalyResults = (records: any[], result: any) => {
-        const byId = new Map<string, { is_anomaly?: boolean; anomaly_score?: number }>();
-        const tryIndex = (item: any) => {
-            const id = item.catch_id ?? item.id ?? item.catchId ?? item.record_id ?? item.recordId;
-            if (!id) return;
-            const score = item.anomaly_score ?? item.score ?? item.outlier_score ?? item.decision_function ?? undefined;
-            const flag = item.is_anomaly ?? item.anomaly ?? item.outlier ?? item.label ?? undefined;
-            byId.set(String(id), { is_anomaly: flag !== undefined ? mapAnomalyBoolean(flag) : undefined, anomaly_score: typeof score === 'number' ? score : undefined });
-        };
-        if (Array.isArray(result)) {
-            result.forEach(tryIndex);
-        } else if (result && Array.isArray(result.results)) {
-            result.results.forEach(tryIndex);
-        } else if (result && typeof result === 'object' && result.anomalies && typeof result.anomalies === 'object') {
-            Object.entries(result.anomalies).forEach(([id, v]: any) => {
-                const obj = Array.isArray(v) ? { is_anomaly: v[0], anomaly_score: v[1] } : typeof v === 'object' ? v : { is_anomaly: v };
-                byId.set(String(id), { is_anomaly: mapAnomalyBoolean((obj as any).is_anomaly), anomaly_score: typeof (obj as any).anomaly_score === 'number' ? (obj as any).anomaly_score : undefined });
-            });
-        }
-        const updated = records.map(r => {
-            const found = byId.get(String(r.id));
-            if (!found) return r;
-            return { ...r, is_anomaly: typeof found.is_anomaly === 'boolean' ? found.is_anomaly : r.is_anomaly, anomaly_score: found.anomaly_score ?? r.anomaly_score };
-        });
-        return updated;
-    };
-
-    const applyHeuristicAnomalies = (records: any[]) => {
-    return records.map(r => {
-        let score = 0;
-        if (r.latitude === undefined || r.longitude === undefined) score += 2;
-        if (r.quality_score !== undefined && r.quality_score < 50) score += 1;
-        if (r.quantity !== undefined && r.quantity <= 0) score += 1;
-        if (r.weight_kg !== undefined && (r.weight_kg <= 0 || r.weight_kg > 1000)) score += 1;
-        if (r.latitude !== undefined && (r.latitude < -90 || r.latitude > 90)) score += 1;
-        if (r.longitude !== undefined && (r.longitude < -180 || r.longitude > 180)) score += 1;
-        if (r.water_temperature !== undefined && (r.water_temperature < -5 || r.water_temperature > 40)) score += 1;
-        const is_anomaly = score > 0;
-        const anomaly_score = Math.min(1, score / 6);
-        return { ...r, is_anomaly, anomaly_score };
-    });
-};
-
-const detectAnomalies = async (records: any[]) => {
-        if (!records || records.length === 0) return records;
-        let timeoutId: number | undefined;
-        try {
-            setDetecting(true);
-            const controller = new AbortController();
-            timeoutId = window.setTimeout(() => {
-                try { (controller as AbortController).abort('timeout'); } catch {}
-            }, 45000);
-            const payload = {
-                data: records.map(r => ({
-                    catch_id: String(r.id),
-                    species_name: r.species?.scientific_name || r.species?.common_name || null,
-                    latitude: typeof r.latitude === 'number' ? r.latitude : null,
-                    longitude: typeof r.longitude === 'number' ? r.longitude : null,
-                    weight_kg: typeof r.weight_kg === 'number' ? r.weight_kg : null,
-                    gear_type: r.fishing_method || null,
-                }))
-            };
-            const res = await fetch(ANOMALY_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-                signal: controller.signal,
-                mode: 'cors',
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const json = await res.json();
-            const updated = applyAnomalyResults(records, json);
-            return updated;
-        } catch (err: any) {
-            const isAbort = err?.name === 'AbortError' || err === 'timeout';
-            toast({
-                title: isAbort ? 'Anomaly detection timed out' : 'Anomaly detection fallback',
-                description: isAbort ? 'Service took too long (possibly waking). Used heuristic rules instead.' : 'AI service unavailable. Used heuristic rules instead.',
-                variant: isAbort ? 'default' : 'destructive'
-            });
-            const updatedLocal = applyHeuristicAnomalies(records);
-            return updatedLocal;
-        } finally {
-            if (timeoutId !== undefined) clearTimeout(timeoutId);
-            setDetecting(false);
-        }
-    };
 
     const handleFileUpload = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
@@ -159,32 +61,14 @@ const detectAnomalies = async (records: any[]) => {
         try {
             const text = await file.text();
             const records = parseCSV(text);
-            // Apply heuristic anomaly rules immediately so user sees initial flags
-            const heur = applyHeuristicAnomalies(records);
-            setParsedRecords(heur);
+            setParsedRecords(records);
             try {
-                localStorage.setItem('uploaded_fish_catches', JSON.stringify(heur));
+                localStorage.setItem('uploaded_fish_catches', JSON.stringify(records));
                 try { window.dispatchEvent(new Event('uploaded-data-changed')); } catch {}
             } catch {}
             try { if (queryClient) queryClient.invalidateQueries(['fish-catches']); } catch {}
             setUploadStatus('success');
-            const count = heur.filter(r => r.is_anomaly).length;
-            toast({ title: "Upload successful", description: `${file.name} has been uploaded and parsed (${records.length} records). Flagged ${count} anomalies using heuristic rules.` });
-
-            // Try to refine using remote AI service but don't block the UI
-            (async () => {
-                toast({ title: 'Detecting anomalies', description: 'Running AI anomaly detection...' });
-                const updated = await detectAnomalies(records);
-                setParsedRecords(updated);
-                try {
-                    localStorage.setItem('uploaded_fish_catches', JSON.stringify(updated));
-                    try { window.dispatchEvent(new Event('uploaded-data-changed')); } catch {}
-                } catch {}
-                // Do not show AI-specific 'Anomalies detected' alert. Only inform if none were found.
-                if (!updated.some(r => r.is_anomaly)) {
-                    toast({ title: 'No anomalies detected', description: 'No anomalies were found.' });
-                }
-            })();
+            toast({ title: "Upload successful", description: `${file.name} has been uploaded and parsed (${records.length} records).` });
         } catch (e) {
             console.error(e);
             setUploadStatus('error');
@@ -262,52 +146,6 @@ const detectAnomalies = async (records: any[]) => {
                     <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4"/>
                     <h3 className="text-lg font-semibold text-foreground mb-2">Upload successful!</h3>
                     <p className="text-muted-foreground mb-4">Your data has been processed and is now available in the dashboard</p>
-                    {detecting && (
-                      <p className="text-xs text-muted-foreground">Detecting anomalies with AI model...</p>
-                    )}
-
-                    <div className="mb-3">
-                      <Card className="bg-card border shadow-data">
-                        <CardHeader>
-                          <CardTitle className="text-foreground">Anomalies ({parsedRecords.filter(r => r.is_anomaly).length})</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {parsedRecords.some(r => r.is_anomaly) ? (
-                            <div className="overflow-auto">
-                              <table className="w-full text-sm">
-                                <thead>
-                                  <tr className="text-left text-muted-foreground">
-                                    <th className="p-2">Date</th>
-                                    <th className="p-2">Species</th>
-                                    <th className="p-2">Lat</th>
-                                    <th className="p-2">Lon</th>
-                                    <th className="p-2">Qty</th>
-                                    <th className="p-2">Weight (kg)</th>
-                                    <th className="p-2">Score</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {parsedRecords.filter(r => r.is_anomaly).map((r, i) => (
-                                    <tr key={r.id || i} className="border-t">
-                                      <td className="p-2">{r.catch_date || '-'}</td>
-                                      <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
-                                      <td className="p-2">{r.latitude ?? '-'}</td>
-                                      <td className="p-2">{r.longitude ?? '-'}</td>
-                                      <td className="p-2">{r.quantity ?? '-'}</td>
-                                      <td className="p-2">{r.weight_kg ?? '-'}</td>
-                                      <td className="p-2">{(typeof r._anomaly_score === 'number') ? r._anomaly_score.toFixed(3) : (r.anomaly_score ?? '-')}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <div className="text-sm text-muted-foreground">No anomalies detected</div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </div>
-
                     <Button onClick={() => setUploadStatus('idle')} variant="outline">Upload Another File</Button>
                   </>
                 )}

@@ -180,10 +180,9 @@ const detectAnomalies = async (records: any[]) => {
                     localStorage.setItem('uploaded_fish_catches', JSON.stringify(updated));
                     try { window.dispatchEvent(new Event('uploaded-data-changed')); } catch {}
                 } catch {}
-                if (updated.some(r => r.is_anomaly)) {
-                    toast({ title: 'Anomalies detected', description: 'Flagged records were updated based on the AI model.' });
-                } else {
-                    toast({ title: 'No anomalies detected', description: 'No records were flagged by the AI model.' });
+                // Do not show AI-specific 'Anomalies detected' alert. Only inform if none were found.
+                if (!updated.some(r => r.is_anomaly)) {
+                    toast({ title: 'No anomalies detected', description: 'No anomalies were found.' });
                 }
             })();
         } catch (e) {

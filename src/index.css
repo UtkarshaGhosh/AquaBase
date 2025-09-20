@@ -123,3 +123,9 @@ All colors MUST be HSL.
     color: hsl(var(--foreground));
   }
 }
+
+/* Ensure page wrapper background utilities are transparent so the body gradient fills whitespace. Containers/cards keep their own backgrounds. */
+.bg-background { background: transparent !important; }
+.bg-gradient-surface { background: transparent !important; }
+/* Also make utility classes for elements that might use the background variable */
+.bg-background\:bg { background: transparent !important; }

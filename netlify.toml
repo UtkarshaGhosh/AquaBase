@@ -6,4 +6,4 @@
 [build.environment]
   NODE_VERSION = "20"
   # Ensure devDependencies are installed for build tools like Vite
-  NPM_FLAGS = "--include=dev"
+  NPM_FLAGS = "--include=dev --legacy-peer-deps"

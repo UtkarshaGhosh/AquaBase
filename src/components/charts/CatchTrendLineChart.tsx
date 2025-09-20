@@ -27,6 +27,55 @@ export const CatchTrendLineChart = ({ data }: { data: TrendDatum[] }) => {
   const textColor = getCssVar('--foreground', '#111827');
   const fillColor = getCssVar('--accent', 'rgba(59,130,246,0.15)');
 
+  function withAlpha(colorStr: string, alpha: number) {
+    // Returns a CSS color string with the requested alpha
+    // Handles: hex (#rrggbb), rgb(...), hsl tokens like "220 90% 15%", hsl(...)
+    try {
+      const s = colorStr.trim();
+      if (!s) return `rgba(59,130,246,${alpha})`;
+      // hex
+      if (s.startsWith('#')) {
+        const hex = s.slice(1);
+        if (hex.length === 3) {
+          const r = parseInt(hex[0] + hex[0], 16);
+          const g = parseInt(hex[1] + hex[1], 16);
+          const b = parseInt(hex[2] + hex[2], 16);
+          return `rgba(${r},${g},${b},${alpha})`;
+        }
+        if (hex.length === 6) {
+          const r = parseInt(hex.slice(0, 2), 16);
+          const g = parseInt(hex.slice(2, 4), 16);
+          const b = parseInt(hex.slice(4, 6), 16);
+          return `rgba(${r},${g},${b},${alpha})`;
+        }
+        return s;
+      }
+      // rgb(...) -> rgba
+      if (s.startsWith('rgb(')) {
+        const nums = s.replace(/rgb\(|\)/g, '').split(',').map((t) => t.trim());
+        if (nums.length >= 3) return `rgba(${nums[0]},${nums[1]},${nums[2]},${alpha})`;
+        return s;
+      }
+      // hsl(...) or hsla(...)
+      if (s.startsWith('hsl(') || s.startsWith('hsla(')) {
+        // if already has a slash (modern), replace or append alpha
+        if (s.includes('/')) {
+          return s.replace(/\/\s*[^)]+\)/, ` / ${alpha})`);
+        }
+        // remove trailing ) and produce hsl(... / alpha)
+        return s.replace(/\)\s*$/, ` / ${alpha})`);
+      }
+      // tokens like "220 90% 15%"
+      if (/^[0-9.\-]+\s+[0-9.%]+\s+[0-9.%]+/.test(s)) {
+        return `hsl(${s} / ${alpha})`;
+      }
+      // fallback: return original
+      return s;
+    } catch (e) {
+      return colorStr;
+    }
+  }
+
   const chartData = useMemo(() => ({
     labels: data.map(d => d.label),
     datasets: [
@@ -37,9 +86,9 @@ export const CatchTrendLineChart = ({ data }: { data: TrendDatum[] }) => {
         backgroundColor: (ctx: any) => {
           const { chart } = ctx;
           const { ctx: c, chartArea } = chart as any;
-          if (!chartArea) return fillColor;
+          if (!chartArea) return withAlpha(lineColor, 0.2);
           const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-          gradient.addColorStop(0, `${lineColor}33`); // ~0.2 alpha
+          gradient.addColorStop(0, withAlpha(lineColor, 0.2));
           gradient.addColorStop(1, 'transparent');
           return gradient;
         },

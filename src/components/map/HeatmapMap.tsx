@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapContainer, TileLayer } from 'react-leaflet';
 import { HeatmapLayer } from 'react-leaflet-heatmap-layer-v3';
+import { useMemo, useState, useEffect, FC } from 'react';
 import 'leaflet/dist/leaflet.css';
 
 interface SpeciesInfo {

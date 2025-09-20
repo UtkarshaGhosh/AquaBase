@@ -175,10 +175,11 @@ export const DashboardView = () => {
   }, [combinedData]);
 
   const handleExport = () => {
-    if (fishCatches.length === 0) {
+    const exportData = combinedData || [];
+    if (exportData.length === 0) {
       toast({
         title: "No data to export",
-        description: "Please adjust your filters to include some data.",
+        description: "Please adjust your filters or upload data to include some records.",
         variant: "destructive"
       });
       return;
@@ -188,7 +189,7 @@ export const DashboardView = () => {
     const headers = ['Date', 'Species (Common)', 'Species (Scientific)', 'Latitude', 'Longitude', 'Quantity', 'Weight (kg)', 'Fishing Method', 'Quality Score'];
     const csvContent = [
       headers.join(','),
-      ...fishCatches.map(catch_item => [
+      ...exportData.map(catch_item => [
         catch_item.catch_date,
         catch_item.species?.common_name || '',
         catch_item.species?.scientific_name || '',

@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { MapPin } from "lucide-react";
-import { Button } from '@/components/ui/button';
 import 'leaflet/dist/leaflet.css';
 import * as L from 'leaflet';
 import 'leaflet.heat';
@@ -86,17 +85,29 @@ export const InteractiveMap = ({ data, onBoundsChange, className }: InteractiveM
         }
         if (!showHeat)
             return;
+        const rawPoints = data
+            .filter(d => d.latitude !== undefined && d.longitude !== undefined)
+            .map(d => {
+                const value = (Number(d.weight_kg) || Number(d.quantity) || 1);
+                return { lat: d.latitude as number, lng: d.longitude as number, value };
+            });
+        const maxValue = rawPoints.reduce((m, p) => Math.max(m, p.value), 0);
         const heatPoints: [
             number,
             number,
             number
-        ][] = data
-            .filter(d => d.latitude !== undefined && d.longitude !== undefined)
-            .map(d => [d.latitude as number, d.longitude as number, (Number(d.weight_kg) || 1)]);
+        ][] = rawPoints.map(p => [p.lat, p.lng, maxValue > 0 ? p.value / maxValue : 0]);
         if (heatPoints.length === 0)
             return;
         try {
-            heatRef.current = (L as any).heatLayer(heatPoints, { radius: 25, blur: 15, maxZoom: 17 }).addTo(map);
+            const gradient: Record<number, string> = {
+                0.2: '#0000ff',
+                0.4: '#00ffff',
+                0.6: '#00ff00',
+                0.8: '#ffff00',
+                1.0: '#ff0000',
+            };
+            heatRef.current = (L as any).heatLayer(heatPoints, { radius: 30, blur: 20, maxZoom: 17, max: 1, minOpacity: 0.6, gradient }).addTo(map);
         }
         catch (e) {
         }
@@ -143,10 +154,5 @@ export const InteractiveMap = ({ data, onBoundsChange, className }: InteractiveM
             </CircleMarker>) : null))}
       </MapContainer>
 
-      <div className="absolute top-4 right-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 flex gap-2 items-center shadow-data" style={{ zIndex: 1000, pointerEvents: 'auto' }}>
-        <Button size="sm" variant={showHeat ? undefined : 'outline'} onClick={() => setShowHeat(s => !s)}>
-          {showHeat ? 'Hide Heatmap' : 'Show Heatmap'}
-        </Button>
-      </div>
     </div>);
 };

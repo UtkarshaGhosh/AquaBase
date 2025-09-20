@@ -23,10 +23,14 @@ export const Navigation = ({ className, currentPage, onPageChange }: NavigationP
         })}
     </nav>);
 };
+import { supabase } from '@/integrations/supabase/client';
 export const Header = ({ currentPage, onPageChange }: {
     currentPage: string;
     onPageChange: (page: string) => void;
 }) => {
+    async function handleLogout() {
+        try { await supabase.auth.signOut(); } catch {}
+    }
     return (<header className="bg-gradient-ocean text-white border-b shadow-ocean">
       <div className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
@@ -39,7 +43,10 @@ export const Header = ({ currentPage, onPageChange }: {
               <p className="text-white/80 text-sm">Marine Research Platform</p>
             </div>
           </div>
-          <Navigation currentPage={currentPage} onPageChange={onPageChange}/>
+          <div className="flex items-center gap-2">
+            <Navigation currentPage={currentPage} onPageChange={onPageChange}/>
+            <Button size="sm" variant="secondary" onClick={handleLogout}>Logout</Button>
+          </div>
         </div>
       </div>
     </header>);

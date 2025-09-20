@@ -157,8 +157,11 @@ export const DashboardView = () => {
     return species;
   }, [uploadedRecords, species]);
 
-  const locations = React.useMemo(() => {
-    const set = new Map<string, string>();
+  // Build location list and resolve area names via reverse geocoding (cached)
+  const [locationOptions, setLocationOptions] = React.useState<Array<{ id: string; label: string; lat?: number; lon?: number }>>([]);
+
+  React.useEffect(() => {
+    const map = new Map<string, { id: string; label: string; lat: number; lon: number }>();
     combinedData.forEach((r: any) => {
       if (r.latitude === undefined || r.longitude === undefined) return;
       const lat = Number(r.latitude);
@@ -168,9 +171,34 @@ export const DashboardView = () => {
       const lonR = lon.toFixed(2);
       const id = `${latR},${lonR}`;
       const label = `${latR}, ${lonR}`;
-      if (!set.has(id)) set.set(id, label);
+      if (!map.has(id)) map.set(id, { id, label, lat, lon });
     });
-    return Array.from(set.entries()).map(([id, label]) => ({ id, label }));
+
+    const entries = Array.from(map.values());
+    setLocationOptions(entries.map(e => ({ id: e.id, label: e.label, lat: e.lat, lon: e.lon })));
+
+    // resolve area names async
+    let mounted = true;
+    (async () => {
+      try {
+        const { getAreaName } = await import('@/lib/geocode');
+        for (const e of entries) {
+          try {
+            const area = await getAreaName(e.lat, e.lon);
+            if (!mounted) return;
+            setLocationOptions(prev => prev.map(p => p.id === e.id ? { ...p, label: area, lat: p.lat, lon: p.lon } : p));
+            // small delay to be polite to Nominatim
+            await new Promise(r => setTimeout(r, 200));
+          } catch (err) {
+            // ignore per-entry
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+    })();
+
+    return () => { mounted = false; };
   }, [combinedData]);
 
   // Apply filters client-side to combinedData (when using uploaded data or after apply)

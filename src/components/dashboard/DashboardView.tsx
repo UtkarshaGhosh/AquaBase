@@ -18,6 +18,7 @@ interface Filters {
   dateFrom?: Date;
   dateTo?: Date;
   fishingMethod?: string;
+  location?: string;
   bounds?: { north: number; south: number; east: number; west: number };
 }
 
@@ -314,7 +315,7 @@ export const DashboardView = () => {
 
     toast({
       title: "Data exported successfully",
-      description: `Downloaded ${fishCatches.length} records to CSV file.`
+      description: `Downloaded ${exportData.length} records to CSV file.`
     });
   };
 
@@ -449,45 +450,43 @@ export const DashboardView = () => {
             </Card>
           </div>
 
-          {/* Table with first 10 rows when a filter is applied */}
-          { (filters && (filters.species || filters.dateFrom || filters.dateTo || filters.fishingMethod || filters.location)) && (
-            <Card className="bg-card border shadow-data">
-              <CardHeader>
-                <CardTitle className="text-foreground">Filtered Data Preview (first 10)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-muted-foreground">
-                        <th className="p-2">Date</th>
-                        <th className="p-2">Species</th>
-                        <th className="p-2">Lat</th>
-                        <th className="p-2">Lon</th>
-                        <th className="p-2">Qty</th>
-                        <th className="p-2">Weight (kg)</th>
+          {/* Data preview table (first 20 rows, reflects filters) */}
+          <Card className="bg-card border shadow-data">
+            <CardHeader>
+              <CardTitle className="text-foreground">Data Preview (first 20)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="p-2">Date</th>
+                      <th className="p-2">Species</th>
+                      <th className="p-2">Lat</th>
+                      <th className="p-2">Lon</th>
+                      <th className="p-2">Qty</th>
+                      <th className="p-2">Weight (kg)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredData.slice(0, 20).map((r: any, i: number) => (
+                      <tr key={r.id || i} className="border-t">
+                        <td className="p-2">{r.catch_date || '-'}</td>
+                        <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
+                        <td className="p-2">{r.latitude ?? '-'}</td>
+                        <td className="p-2">{r.longitude ?? '-'}</td>
+                        <td className="p-2">{r.quantity ?? '-'}</td>
+                        <td className="p-2">{r.weight_kg ?? '-'}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {filteredData.slice(0, 10).map((r: any, i: number) => (
-                        <tr key={r.id || i} className="border-t">
-                          <td className="p-2">{r.catch_date || '-'}</td>
-                          <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
-                          <td className="p-2">{r.latitude ?? '-'}</td>
-                          <td className="p-2">{r.longitude ?? '-'}</td>
-                          <td className="p-2">{r.quantity ?? '-'}</td>
-                          <td className="p-2">{r.weight_kg ?? '-'}</td>
-                        </tr>
-                      ))}
-                      {filteredData.length === 0 && (
-                        <tr><td colSpan={6} className="p-2 text-muted-foreground">No records found for current filters.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          ) }
+                    ))}
+                    {filteredData.length === 0 && (
+                      <tr><td colSpan={6} className="p-2 text-muted-foreground">No records found.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

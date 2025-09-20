@@ -60,7 +60,7 @@ export const HeatmapMap: FC<HeatmapMapProps> = ({ initialData = [], className })
 
   // Normalize incoming data (from CSV, uploaded data, or initialData) into a common shape for aggregation
   const rows = useMemo(() => {
-    const source = csvRows ?? uploadedRows ?? initialData ?? [];
+    const source = uploadedRows ?? initialData ?? [];
     return source
       .map((r: any) => {
         const lat = r.latitude ?? r.lat ?? r.Latitude ?? r.Lat ?? r.LATITUDE;

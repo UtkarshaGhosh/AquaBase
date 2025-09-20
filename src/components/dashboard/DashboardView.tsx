@@ -224,17 +224,16 @@ export const DashboardView = () => {
     const totalWeight = filteredData.reduce((sum, c) => sum + (Number(c.weight_kg) || 0), 0);
     const avgWeightPerCatch = filteredData.length > 0 ? Math.round(totalWeight / filteredData.length) : 0;
 
-    // top species by weight
+    // top species by weight (based on filtered data)
     const speciesWeightMap = new Map<string, number>();
-    combinedData.forEach((c: any) => {
+    filteredData.forEach((c: any) => {
       const name = c?.species?.common_name || c?.species?.scientific_name || 'Unknown';
       speciesWeightMap.set(name, (speciesWeightMap.get(name) || 0) + (Number(c.weight_kg) || 0));
     });
     const topSpecies = Array.from(speciesWeightMap.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
 
     return {
-      totalCatches: combinedData.length,
-      uniqueSpecies: uniqueSpeciesSet.size,
+      totalCatches: filteredData.length,
       dateRange: dates.length > 0
         ? `${Math.min(...dates.map(d => new Date(d).getFullYear()))} - ${Math.max(...dates.map(d => new Date(d).getFullYear()))}`
         : "No data",
@@ -243,7 +242,7 @@ export const DashboardView = () => {
       avgWeightPerCatch,
       topSpecies,
     };
-  }, [combinedData]);
+  }, [filteredData]);
 
   const handleExport = () => {
     const exportData = filteredData || [];

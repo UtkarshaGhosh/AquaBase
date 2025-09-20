@@ -407,7 +407,7 @@ export const DashboardView = () => {
               onExport={handleExport}
               onFindHotspots={handleFindHotspots}
               species={speciesForFilter}
-              locations={locations}
+              locations={locationOptions}
               isLoading={isLoading}
               onApply={() => setFilters(tempFilters)}
             />

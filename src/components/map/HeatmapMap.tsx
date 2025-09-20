@@ -36,7 +36,6 @@ function nameFromSpecies(s?: SpeciesInfo, fallback?: any): string {
 }
 
 export const HeatmapMap: FC<HeatmapMapProps> = ({ initialData = [], className }) => {
-  const [csvRows, setCsvRows] = useState<any[] | null>(null);
   const [uploadedRows, setUploadedRows] = useState<any[] | null>(null);
   const [selectedSpecies, setSelectedSpecies] = useState<string>('all');
 

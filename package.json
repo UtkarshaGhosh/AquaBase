@@ -61,6 +61,7 @@
     "react-chartjs-2": "^5.2.0",
     "react-leaflet": "^4.2.1",
     "leaflet": "^1.9.4",
+    "leaflet.heat": "^0.2.0",
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",

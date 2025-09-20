@@ -253,29 +253,81 @@ export const UploadView = () => {
             </CardContent>
           </Card>
 
-          {/* Data Quality Overview (based on uploaded file) */}
+          {/* Flagged anomalies and preview of uploaded data */}
           <Card className="bg-card border shadow-data">
             <CardHeader>
-              <CardTitle className="text-foreground">Data Quality Overview</CardTitle>
+              <CardTitle className="text-foreground">Flagged Anomalies (first 10)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{parsedRecords.filter(r => !r.is_anomaly).length}</div>
-                  <div className="text-sm text-muted-foreground">Clean Records</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-600">{parsedRecords.filter(r => r.is_anomaly).length}</div>
-                  <div className="text-sm text-muted-foreground">Flagged Anomalies</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{parsedRecords.length > 0 ? Math.round((parsedRecords.filter(r => (r.quality_score || 0) >= 90).length / parsedRecords.length) * 100) : 0}%</div>
-                  <div className="text-sm text-muted-foreground">High Quality</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">{parsedRecords.length}</div>
-                  <div className="text-sm text-muted-foreground">Total Records</div>
-                </div>
+              <div className="overflow-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="p-2">Date</th>
+                      <th className="p-2">Species</th>
+                      <th className="p-2">Lat</th>
+                      <th className="p-2">Lon</th>
+                      <th className="p-2">Qty</th>
+                      <th className="p-2">Weight (kg)</th>
+                      <th className="p-2">Quality</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsedRecords.filter(r => r.is_anomaly).slice(0, 10).map((r, i) => (
+                      <tr key={r.id || i} className="border-t">
+                        <td className="p-2">{r.catch_date || '-'}</td>
+                        <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
+                        <td className="p-2">{r.latitude ?? '-'}</td>
+                        <td className="p-2">{r.longitude ?? '-'}</td>
+                        <td className="p-2">{r.quantity ?? '-'}</td>
+                        <td className="p-2">{r.weight_kg ?? '-'}</td>
+                        <td className="p-2">{r.quality_score ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {parsedRecords.filter(r => r.is_anomaly).length === 0 && (
+                  <div className="text-xs text-muted-foreground p-2">No flagged anomalies found in the uploaded file.</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border shadow-data">
+            <CardHeader>
+              <CardTitle className="text-foreground">Data Preview (first 10 rows)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="p-2">Date</th>
+                      <th className="p-2">Species</th>
+                      <th className="p-2">Lat</th>
+                      <th className="p-2">Lon</th>
+                      <th className="p-2">Qty</th>
+                      <th className="p-2">Weight (kg)</th>
+                      <th className="p-2">Quality</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsedRecords.slice(0, 10).map((r, i) => (
+                      <tr key={r.id || i} className="border-t">
+                        <td className="p-2">{r.catch_date || '-'}</td>
+                        <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
+                        <td className="p-2">{r.latitude ?? '-'}</td>
+                        <td className="p-2">{r.longitude ?? '-'}</td>
+                        <td className="p-2">{r.quantity ?? '-'}</td>
+                        <td className="p-2">{r.weight_kg ?? '-'}</td>
+                        <td className="p-2">{r.quality_score ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {parsedRecords.length === 0 && (
+                  <div className="text-xs text-muted-foreground p-2">No data parsed yet. Upload a CSV to preview rows.</div>
+                )}
               </div>
             </CardContent>
           </Card>

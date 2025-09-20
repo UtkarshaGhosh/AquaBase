@@ -64,30 +64,13 @@ function MapEvents({ data, onBoundsChange }: { data: FishCatch[]; onBoundsChange
 
 export const InteractiveMap = ({ data, onBoundsChange, className }: InteractiveMapProps) => {
   const [mounted, setMounted] = useState(false);
+  const mapRef = useRef<any>(null);
+  const heatRef = useRef<any>(null);
+  const [showHeat, setShowHeat] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  if (!mounted) {
-    return (
-      <Card className="p-6 bg-card border shadow-data">
-        <div className="text-center">
-          <MapPin className="h-8 w-8 text-primary mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">Initializing map...</p>
-        </div>
-      </Card>
-    );
-  }
-
-  // Default center
-  const defaultCenter: [number, number] = data && data.length > 0
-    ? [data[0].latitude || 0, data[0].longitude || 0]
-    : [50, -20];
-
-  const mapRef = useRef<any>(null);
-  const heatRef = useRef<any>(null);
-  const [showHeat, setShowHeat] = useState(false);
 
   useEffect(() => {
     // manage heat layer when data or toggle changes
@@ -122,6 +105,22 @@ export const InteractiveMap = ({ data, onBoundsChange, className }: InteractiveM
       }
     };
   }, [data, showHeat]);
+
+  if (!mounted) {
+    return (
+      <Card className="p-6 bg-card border shadow-data">
+        <div className="text-center">
+          <MapPin className="h-8 w-8 text-primary mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">Initializing map...</p>
+        </div>
+      </Card>
+    );
+  }
+
+  // Default center
+  const defaultCenter: [number, number] = data && data.length > 0
+    ? [data[0].latitude || 0, data[0].longitude || 0]
+    : [50, -20];
 
   return (
     <div className={`relative w-full h-[500px] ${className || ''}`}>

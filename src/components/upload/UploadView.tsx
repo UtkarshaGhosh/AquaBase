@@ -6,61 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { IsolationForest, extractNumericFeatures, computeMedians, imputeWithMedians } from "@/lib/isolationForest";
 
 const ANOMALY_API_URL = 'https://fish-anomaly-api.onrender.com/detect-anomalies';
-const LOCAL_MODEL_KEY = 'iforest_model_v1';
-const LOCAL_FEATURES = ['latitude','longitude','quantity','weight_kg','depth_m','water_temperature'];
 
 export const UploadView = () => {
     const [isDragOver, setIsDragOver] = useState(false);
     const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
     const [parsedRecords, setParsedRecords] = useState<any[]>([]);
     const [detecting, setDetecting] = useState(false);
-    const [targetAnomalies, setTargetAnomalies] = useState<number>(25);
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
-    const trainLocalModel = async (records: any[]) => {
-        const data = extractNumericFeatures(records, LOCAL_FEATURES);
-        const med = computeMedians(data);
-        const dataImp = imputeWithMedians(data, med);
-        const forest = new IsolationForest({ nTrees: 100, sampleSize: Math.min(256, Math.max(8, dataImp.length)) });
-        forest.fit(dataImp, LOCAL_FEATURES);
-        const model = forest.toModel();
-        localStorage.setItem(LOCAL_MODEL_KEY, JSON.stringify({ model, med }));
-        toast({ title: 'Local model trained', description: `Trained on ${records.length} rows with ${LOCAL_FEATURES.length} features.` });
-    };
 
-    const runLocalModel = (records: any[], threshold = 0.6, desiredCount?: number) => {
-        const raw = localStorage.getItem(LOCAL_MODEL_KEY);
-        if (!raw) {
-            toast({ title: 'No local model found', description: 'Train the model first.', variant: 'destructive' });
-            return records;
-        }
-        const parsed = JSON.parse(raw);
-        const forest = IsolationForest.fromModel(parsed.model);
-        const med: number[] = parsed.med || [];
-        const feats = extractNumericFeatures(records, LOCAL_FEATURES);
-        const featsImp = imputeWithMedians(feats, med);
-
-        // Compute scores first
-        const scores = featsImp.map(vec => forest.score(vec));
-        let tau = threshold;
-        if (typeof desiredCount === 'number' && desiredCount >= 0) {
-            const k = Math.max(0, Math.min(desiredCount, scores.length));
-            if (k === 0) {
-                tau = Infinity; // flag none
-            } else if (k >= scores.length) {
-                tau = -Infinity; // flag all
-            } else {
-                const sorted = [...scores].sort((a, b) => b - a);
-                tau = sorted[k - 1];
-            }
-        }
-        const updated = records.map((r, i) => ({ ...r, anomaly_score: scores[i], is_anomaly: scores[i] >= tau }));
-        return updated;
-    };
 
     const parseCSV = (text: string) => {
         const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -89,8 +46,8 @@ export const UploadView = () => {
                     common_name: obj.species_common_name || ''
                 }
             };
-            // Initial conservative heuristic; will be replaced by model results if available
-            rec.is_anomaly = !(rec.latitude && rec.longitude) || (rec.quality_score !== undefined && rec.quality_score < 50);
+            // Initial conservative heuristic (start unflagged)
+            rec.is_anomaly = false;
             return rec;
         }).filter(r => r.catch_date || r.latitude !== undefined || r.longitude !== undefined);
         return records;
@@ -164,10 +121,10 @@ export const UploadView = () => {
             const isAbort = err?.name === 'AbortError' || err === 'timeout';
             toast({
                 title: isAbort ? 'Anomaly detection timed out' : 'Anomaly detection fallback',
-                description: isAbort ? 'Service took too long (possibly waking). Used local model instead.' : 'AI service unavailable. Used local model instead.',
+                description: isAbort ? 'Service took too long (possibly waking). Used heuristic rules instead.' : 'AI service unavailable. Used heuristic rules instead.',
                 variant: isAbort ? 'default' : 'destructive'
             });
-            const updatedLocal = runLocalModel(records, 0.6, targetAnomalies);
+            const updatedLocal = applyHeuristicAnomalies(records);
             return updatedLocal;
         } finally {
             if (timeoutId !== undefined) clearTimeout(timeoutId);
@@ -186,17 +143,19 @@ export const UploadView = () => {
         try {
             const text = await file.text();
             const records = parseCSV(text);
-            await trainLocalModel(records);
-            const locallyScored = runLocalModel(records, 0.6, targetAnomalies);
-            setParsedRecords(locallyScored);
+            // Apply heuristic anomaly rules immediately so user sees initial flags
+            const heur = applyHeuristicAnomalies(records);
+            setParsedRecords(heur);
             try {
-                localStorage.setItem('uploaded_fish_catches', JSON.stringify(locallyScored));
+                localStorage.setItem('uploaded_fish_catches', JSON.stringify(heur));
                 try { window.dispatchEvent(new Event('uploaded-data-changed')); } catch {}
             } catch {}
             try { if (queryClient) queryClient.invalidateQueries(['fish-catches']); } catch {}
             setUploadStatus('success');
-            toast({ title: "Upload successful", description: `${file.name} has been uploaded and parsed (${records.length} records). Local model trained and applied.` });
-            // Trigger anomaly detection asynchronously and update state/storage when done
+            const count = heur.filter(r => r.is_anomaly).length;
+            toast({ title: "Upload successful", description: `${file.name} has been uploaded and parsed (${records.length} records). Flagged ${count} anomalies using heuristic rules.` });
+
+            // Try to refine using remote AI service but don't block the UI
             (async () => {
                 toast({ title: 'Detecting anomalies', description: 'Running AI anomaly detection...' });
                 const updated = await detectAnomalies(records);
@@ -345,6 +304,43 @@ export const UploadView = () => {
                     <p className="text-muted-foreground mb-4">There was an error processing your file</p>
                     <Button onClick={() => setUploadStatus('idle')} variant="outline">Try Again</Button>
                   </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border shadow-data">
+            <CardHeader>
+              <CardTitle className="text-foreground">Data Preview (first 20 rows)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="p-2">Date</th>
+                      <th className="p-2">Species</th>
+                      <th className="p-2">Lat</th>
+                      <th className="p-2">Lon</th>
+                      <th className="p-2">Qty</th>
+                      <th className="p-2">Weight (kg)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsedRecords.slice(0, 20).map((r, i) => (
+                      <tr key={r.id || i} className="border-t">
+                        <td className="p-2">{r.catch_date || '-'}</td>
+                        <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
+                        <td className="p-2">{r.latitude ?? '-'}</td>
+                        <td className="p-2">{r.longitude ?? '-'}</td>
+                        <td className="p-2">{r.quantity ?? '-'}</td>
+                        <td className="p-2">{r.weight_kg ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {parsedRecords.length === 0 && (
+                  <div className="text-xs text-muted-foreground p-2">No data parsed yet. Upload a CSV to preview rows.</div>
                 )}
               </div>
             </CardContent>

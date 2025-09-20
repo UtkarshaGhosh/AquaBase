@@ -74,6 +74,8 @@ export const HeatmapMap: React.FC<HeatmapMapProps> = ({ initialData = [], classN
       .filter(Boolean) as Array<{ lat: number; lng: number; weight?: number; quantity?: number; speciesName: string }>; 
   }, [csvRows, initialData]);
 
+  const [showHeat, setShowHeat] = useState(true);
+
   const speciesOptions = useMemo(() => {
     const set = new Set<string>();
     rows.forEach(r => { if (r.speciesName) set.add(r.speciesName); });

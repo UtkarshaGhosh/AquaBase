@@ -6,8 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { IsolationForest, extractNumericFeatures, computeMedians, imputeWithMedians } from "@/lib/isolationForest";
 
 const ANOMALY_API_URL = 'https://fish-anomaly-api.onrender.com/detect-anomalies';
+const LOCAL_MODEL_KEY = 'iforest_model_v1';
+const LOCAL_FEATURES = ['latitude','longitude','quantity','weight_kg','depth_m','water_temperature'];
 
 export const UploadView = () => {
     const [isDragOver, setIsDragOver] = useState(false);

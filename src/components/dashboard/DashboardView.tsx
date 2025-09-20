@@ -93,21 +93,46 @@ export const DashboardView = () => {
     }
   });
 
-  // Read any uploaded records from localStorage and merge with backend data
-  const uploadedRecords = React.useMemo(() => {
+  // Read any uploaded records from localStorage; listen for changes so dashboard updates in real-time
+  const [uploadedRecords, setUploadedRecords] = React.useState<any[]>(() => {
     try {
+      if (typeof window === 'undefined') return [];
       const raw = localStorage.getItem('uploaded_fish_catches');
       if (!raw) return [];
       const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed;
+      return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
       return [];
     }
-  }, [typeof window !== 'undefined' && localStorage.getItem('uploaded_fish_catches')]);
+  });
 
+  React.useEffect(() => {
+    function handler() {
+      try {
+        const raw = localStorage.getItem('uploaded_fish_catches');
+        if (!raw) {
+          setUploadedRecords([]);
+          return;
+        }
+        const parsed = JSON.parse(raw);
+        setUploadedRecords(Array.isArray(parsed) ? parsed : []);
+      } catch (e) {
+        setUploadedRecords([]);
+      }
+    }
+
+    window.addEventListener('uploaded-data-changed', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('uploaded-data-changed', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, []);
+
+  // If uploaded records exist, use them instead of backend data (replace, not merge)
   const combinedData = React.useMemo(() => {
-    return [...(fishCatches || []), ...(uploadedRecords || [])];
+    if (uploadedRecords && uploadedRecords.length > 0) return uploadedRecords;
+    return fishCatches || [];
   }, [fishCatches, uploadedRecords]);
 
   // Calculate statistics from combined data

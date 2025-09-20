@@ -366,7 +366,8 @@ export const DashboardView = () => {
               onFiltersChange={setTempFilters}
               onExport={handleExport}
               onFindHotspots={handleFindHotspots}
-              species={species}
+              species={speciesForFilter}
+              locations={locations}
               isLoading={isLoading}
             />
             <div className="mt-3">

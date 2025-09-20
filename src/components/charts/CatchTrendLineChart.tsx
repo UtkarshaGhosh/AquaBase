@@ -8,8 +8,15 @@ export interface TrendDatum {
 }
 
 function getCssVar(name: string, fallback: string) {
-  const val = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return val || fallback;
+  try {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return fallback;
+    const root = document.documentElement;
+    if (!root) return fallback;
+    const val = getComputedStyle(root).getPropertyValue(name) || '';
+    return val.trim() || fallback;
+  } catch (e) {
+    return fallback;
+  }
 }
 
 export const CatchTrendLineChart = ({ data }: { data: TrendDatum[] }) => {

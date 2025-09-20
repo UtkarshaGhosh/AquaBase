@@ -291,24 +291,49 @@ export const UploadView = () => {
                     {detecting && (
                       <p className="text-xs text-muted-foreground">Detecting anomalies with AI model...</p>
                     )}
-                    <div className="flex items-center justify-center gap-2 mb-3">
-                      <Button variant="secondary" onClick={() => trainLocalModel(parsedRecords)}>Train Local Model</Button>
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs text-muted-foreground">Target anomalies</label>
-                        <Input type="number" min={0} max={parsedRecords.length || 1000} value={targetAnomalies}
-                          onChange={(e) => setTargetAnomalies(Math.max(0, Math.min(Number(e.target.value || 0), parsedRecords.length || 1000)))} className="w-24" />
-                      </div>
-                      <Button variant="secondary" onClick={() => {
-                        const updated = runLocalModel(parsedRecords, 0.6, targetAnomalies);
-                        setParsedRecords(updated);
-                        try {
-                          localStorage.setItem('uploaded_fish_catches', JSON.stringify(updated));
-                          try { window.dispatchEvent(new Event('uploaded-data-changed')); } catch {}
-                        } catch {}
-                        const count = updated.filter(r => r.is_anomaly).length;
-                        toast({ title: 'Local anomalies detected', description: `Flagged ${count} records using the local model.` });
-                      }}>Run Local Model</Button>
+
+                    <div className="mb-3">
+                      <Card className="bg-card border shadow-data">
+                        <CardHeader>
+                          <CardTitle className="text-foreground">Anomalies ({parsedRecords.filter(r => r.is_anomaly).length})</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {parsedRecords.some(r => r.is_anomaly) ? (
+                            <div className="overflow-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="text-left text-muted-foreground">
+                                    <th className="p-2">Date</th>
+                                    <th className="p-2">Species</th>
+                                    <th className="p-2">Lat</th>
+                                    <th className="p-2">Lon</th>
+                                    <th className="p-2">Qty</th>
+                                    <th className="p-2">Weight (kg)</th>
+                                    <th className="p-2">Score</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {parsedRecords.filter(r => r.is_anomaly).map((r, i) => (
+                                    <tr key={r.id || i} className="border-t">
+                                      <td className="p-2">{r.catch_date || '-'}</td>
+                                      <td className="p-2">{r.species?.common_name || r.species?.scientific_name || '-'}</td>
+                                      <td className="p-2">{r.latitude ?? '-'}</td>
+                                      <td className="p-2">{r.longitude ?? '-'}</td>
+                                      <td className="p-2">{r.quantity ?? '-'}</td>
+                                      <td className="p-2">{r.weight_kg ?? '-'}</td>
+                                      <td className="p-2">{(typeof r._anomaly_score === 'number') ? r._anomaly_score.toFixed(3) : (r.anomaly_score ?? '-')}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-muted-foreground">No anomalies detected</div>
+                          )}
+                        </CardContent>
+                      </Card>
                     </div>
+
                     <Button onClick={() => setUploadStatus('idle')} variant="outline">Upload Another File</Button>
                   </>
                 )}

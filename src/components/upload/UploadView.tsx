@@ -119,10 +119,13 @@ export const UploadView = () => {
 
     const detectAnomalies = async (records: any[]) => {
         if (!records || records.length === 0) return records;
+        let timeoutId: number | undefined;
         try {
             setDetecting(true);
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 15000);
+            timeoutId = window.setTimeout(() => {
+                try { (controller as AbortController).abort('timeout'); } catch {}
+            }, 45000);
             const payload = {
                 data: records.map(r => ({
                     catch_id: String(r.id),
@@ -140,15 +143,20 @@ export const UploadView = () => {
                 signal: controller.signal,
                 mode: 'cors',
             });
-            clearTimeout(timeout);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const json = await res.json();
             const updated = applyAnomalyResults(records, json);
             return updated;
-        } catch (err) {
-            toast({ title: 'Anomaly detection fallback', description: 'AI service unavailable. Used heuristic flags instead.', variant: 'destructive' });
+        } catch (err: any) {
+            const isAbort = err?.name === 'AbortError' || err === 'timeout';
+            toast({
+                title: isAbort ? 'Anomaly detection timed out' : 'Anomaly detection fallback',
+                description: isAbort ? 'Service took too long (possibly waking). Used heuristic/local flags instead.' : 'AI service unavailable. Used heuristic/local flags instead.',
+                variant: isAbort ? 'default' : 'destructive'
+            });
             return records;
         } finally {
+            if (timeoutId !== undefined) clearTimeout(timeoutId);
             setDetecting(false);
         }
     };

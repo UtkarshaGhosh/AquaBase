@@ -122,25 +122,6 @@ export const HeatmapMap: FC<HeatmapMapProps> = ({ initialData = [], className })
         <CardTitle className="text-foreground">Density Heatmap</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col md:flex-row gap-3 mb-4">
-          <div className="flex items-center gap-2">
-            <Input type="file" accept=".csv" onChange={(e) => handleFileChange(e.target.files)} />
-            <Button variant="outline" onClick={() => setCsvRows(null)} disabled={!csvRows}>Use App Data</Button>
-          </div>
-          <div className="flex-1 min-w-[220px]">
-            <Select value={selectedSpecies} onValueChange={(v) => setSelectedSpecies(v)}>
-              <SelectTrigger className="bg-background border-border">
-                <SelectValue placeholder="All species" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All species</SelectItem>
-                {speciesOptions.map(s => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
         <div className={`relative w-full h-[500px] ${className || ''}`}>
           <MapContainer center={indiaCenter} zoom={5} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true} zoomControl={true}>

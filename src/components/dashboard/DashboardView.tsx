@@ -27,6 +27,7 @@ export const DashboardView = () => {
   const [tempFilters, setTempFilters] = useState<Filters>(filters);
   const { toast } = useToast();
   const [exporting, setExporting] = useState(false);
+  const isUUID = (s?: string) => !!s && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 
   // keep tempFilters synced when filters applied externally
   useEffect(() => {
@@ -72,7 +73,7 @@ export const DashboardView = () => {
         .order('catch_date', { ascending: false });
 
       // Apply filters
-      if (filters.species) {
+      if (filters.species && isUUID(filters.species)) {
         query = query.eq('species_id', filters.species);
       }
       
@@ -311,9 +312,9 @@ export const DashboardView = () => {
             .order('catch_date', { ascending: false })
             .range(from, to);
 
-          if (filters.species) {
-            query = query.eq('species_id', filters.species);
-          }
+          if (filters.species && isUUID(filters.species)) {
+        query = query.eq('species_id', filters.species);
+      }
           if (filters.dateFrom) {
             query = query.gte('catch_date', format(filters.dateFrom, 'yyyy-MM-dd'));
           }

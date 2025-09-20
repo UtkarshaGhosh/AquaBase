@@ -14,7 +14,134 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      data_uploads: {
+        Row: {
+          error_details: Json | null
+          filename: string
+          id: string
+          records_count: number
+          records_errors: number
+          records_processed: number
+          status: string
+          upload_date: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          error_details?: Json | null
+          filename: string
+          id?: string
+          records_count?: number
+          records_errors?: number
+          records_processed?: number
+          status?: string
+          upload_date?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          error_details?: Json | null
+          filename?: string
+          id?: string
+          records_count?: number
+          records_errors?: number
+          records_processed?: number
+          status?: string
+          upload_date?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      fish_catches: {
+        Row: {
+          catch_date: string
+          created_at: string
+          data_source: string | null
+          depth_m: number | null
+          fishing_method: string | null
+          id: string
+          is_anomaly: boolean | null
+          latitude: number
+          longitude: number
+          notes: string | null
+          quality_score: number | null
+          quantity: number
+          species_id: string
+          updated_at: string
+          vessel_name: string | null
+          water_temperature: number | null
+          weight_kg: number | null
+        }
+        Insert: {
+          catch_date: string
+          created_at?: string
+          data_source?: string | null
+          depth_m?: number | null
+          fishing_method?: string | null
+          id?: string
+          is_anomaly?: boolean | null
+          latitude: number
+          longitude: number
+          notes?: string | null
+          quality_score?: number | null
+          quantity: number
+          species_id: string
+          updated_at?: string
+          vessel_name?: string | null
+          water_temperature?: number | null
+          weight_kg?: number | null
+        }
+        Update: {
+          catch_date?: string
+          created_at?: string
+          data_source?: string | null
+          depth_m?: number | null
+          fishing_method?: string | null
+          id?: string
+          is_anomaly?: boolean | null
+          latitude?: number
+          longitude?: number
+          notes?: string | null
+          quality_score?: number | null
+          quantity?: number
+          species_id?: string
+          updated_at?: string
+          vessel_name?: string | null
+          water_temperature?: number | null
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fish_catches_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "species"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      species: {
+        Row: {
+          common_name: string | null
+          created_at: string
+          family: string | null
+          id: string
+          scientific_name: string
+        }
+        Insert: {
+          common_name?: string | null
+          created_at?: string
+          family?: string | null
+          id?: string
+          scientific_name: string
+        }
+        Update: {
+          common_name?: string | null
+          created_at?: string
+          family?: string | null
+          id?: string
+          scientific_name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

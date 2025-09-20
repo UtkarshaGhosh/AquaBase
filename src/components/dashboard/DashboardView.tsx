@@ -246,7 +246,7 @@ export const DashboardView = () => {
   }, [combinedData]);
 
   const handleExport = () => {
-    const exportData = combinedData || [];
+    const exportData = filteredData || [];
     if (exportData.length === 0) {
       toast({
         title: "No data to export",

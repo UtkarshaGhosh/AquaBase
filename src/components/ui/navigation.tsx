@@ -14,6 +14,7 @@ const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'map', label: 'Map View', icon: Map },
     { id: 'upload', label: 'Data Upload', icon: Upload },
+    { id: 'community', label: 'Community', icon: Fish },
 ];
 
 export const Navigation = ({ className, currentPage, onPageChange }: NavigationProps) => {

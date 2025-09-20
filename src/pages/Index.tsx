@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import AuthPage from '@/components/auth/AuthPage';
+import Community from '@/pages/Community';
 const Index = () => {
     const [currentPage, setCurrentPage] = useState('dashboard');
     const [sessionReady, setSessionReady] = useState(false);
@@ -103,6 +104,8 @@ const Index = () => {
           </div>);
             case 'upload':
                 return <UploadView />;
+            case 'community':
+                return <Community />;
             default:
                 return <DashboardView />;
         }

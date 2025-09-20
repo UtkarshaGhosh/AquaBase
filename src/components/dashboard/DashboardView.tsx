@@ -304,7 +304,7 @@ export const DashboardView = () => {
   // Aggregated data for charts (derived from fetched fishCatches)
   const speciesAggregation = React.useMemo(() => {
     const map = new Map<string, number>();
-    combinedData.forEach((c: any) => {
+    filteredData.forEach((c: any) => {
       const name = c?.species?.common_name || c?.species?.scientific_name || 'Unknown';
       const w = Number(c?.weight_kg) || 0;
       map.set(name, (map.get(name) || 0) + w);
@@ -312,11 +312,11 @@ export const DashboardView = () => {
     return Array.from(map.entries())
       .map(([label, value]) => ({ label, value }))
       .sort((a, b) => b.value - a.value);
-  }, [combinedData]);
+  }, [filteredData]);
 
   const trendData = React.useMemo(() => {
     const map = new Map<string, number>(); // key = 'YYYY-MM'
-    combinedData.forEach((c: any) => {
+    filteredData.forEach((c: any) => {
       if (!c.catch_date) return;
       const d = new Date(c.catch_date);
       if (Number.isNaN(d.getTime())) return;
@@ -333,7 +333,7 @@ export const DashboardView = () => {
       const label = format(new Date(year, month - 1, 1), 'MMM yyyy');
       return { label, value };
     });
-  }, [combinedData]);
+  }, [filteredData]);
 
   if (error) {
     return (

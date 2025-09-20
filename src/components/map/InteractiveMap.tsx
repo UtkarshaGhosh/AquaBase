@@ -154,12 +154,12 @@ export const InteractiveMap = ({ data, onBoundsChange, className }: InteractiveM
         ))}
       </MapContainer>
 
-      <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 shadow-data">
+      <div className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 shadow-data" style={{ zIndex: 1000, pointerEvents: 'auto' }}>
         <p className="text-sm font-medium text-foreground">Fish Catch Locations</p>
         <p className="text-xs text-muted-foreground">Click points for details</p>
       </div>
 
-      <div className="absolute top-4 right-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 flex gap-2 items-center shadow-data">
+      <div className="absolute top-4 right-4 bg-card/90 backdrop-blur-sm rounded-lg p-3 flex gap-2 items-center shadow-data" style={{ zIndex: 1000, pointerEvents: 'auto' }}>
         <Button size="sm" variant={showHeat ? undefined : 'outline'} onClick={() => setShowHeat(s => !s)}>
           {showHeat ? 'Hide Heatmap' : 'Show Heatmap'}
         </Button>

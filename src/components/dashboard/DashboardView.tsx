@@ -21,7 +21,13 @@ interface Filters {
 
 export const DashboardView = () => {
   const [filters, setFilters] = useState<Filters>({});
+  const [tempFilters, setTempFilters] = useState<Filters>(filters);
   const { toast } = useToast();
+
+  // keep tempFilters synced when filters applied externally
+  useEffect(() => {
+    setTempFilters(filters);
+  }, [filters]);
 
   // Fetch species for filter dropdown
   const { data: species = [] } = useQuery({
